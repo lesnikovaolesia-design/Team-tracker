@@ -192,37 +192,6 @@ html { scroll-behavior: smooth; }
   .tt-tab { padding: 6px 10px 8px; font-size: 13px; }
 }
 
-/* Gamification */
-#leaderboard { --accent: var(--yellow); background: linear-gradient(160deg, color-mix(in srgb, var(--yellow) 10%, var(--panel)), var(--panel) 55%); }
-.tt-mvp { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 18px; color: #2a1a00;
-  background: linear-gradient(120deg, #ffe27a, #ffb84d 55%, #ff8fb8); box-shadow: 0 6px 18px color-mix(in srgb, var(--orange) 30%, transparent); }
-.tt-mvp-crown { font-size: 40px; line-height: 1; animation: tt-bob 2.4s ease-in-out infinite; }
-.tt-mvp b { font-size: 18px; }
-.tt-mvp p { margin: 2px 0 0; font-size: 13px; opacity: .85; }
-@keyframes tt-bob { 0%, 100% { transform: translateY(0) rotate(-6deg); } 50% { transform: translateY(-4px) rotate(6deg); } }
-.tt-board { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
-.tt-player { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); }
-.tt-player.is-first { border: 2px solid var(--yellow); box-shadow: 0 4px 14px color-mix(in srgb, var(--yellow) 30%, transparent); }
-.tt-player-top { display: flex; align-items: center; gap: 10px; }
-.tt-medal { font-size: 26px; line-height: 1; width: 32px; text-align: center; }
-.tt-rank { font-weight: 700; color: var(--muted); }
-.tt-player-name { font-weight: 600; flex: 1; min-width: 0; line-height: 1.25; }
-.tt-points { font-weight: 700; font-size: 20px; font-variant-numeric: tabular-nums; }
-.tt-points small { font-size: 12px; font-weight: 500; color: var(--muted); }
-.tt-bar-track { height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--fg) 8%, transparent); overflow: hidden; }
-.tt-bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--green), var(--blue), var(--purple)); transition: width .4s ease; }
-.tt-player-stats { font-size: 12px; color: var(--muted); }
-.tt-badges { display: flex; flex-wrap: wrap; gap: 4px; }
-.tt-badges:empty::before { content: "No badges yet. Log a bit faster to earn one 💪"; font-size: 12px; color: var(--muted); }
-.tt-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 999px;
-  background: color-mix(in srgb, var(--purple) 12%, var(--panel)); border: 1px solid color-mix(in srgb, var(--purple) 25%, var(--line)); white-space: nowrap; }
-.tt-rules, .tt-badge-key { margin: 0; padding: 0 12px 10px 30px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
-.tt-badge-key { list-style: none; padding-left: 12px; }
-.tt-badge-key li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-#leaderboard .tt-key-box > .tt-note { padding: 0 12px 12px; }
-.tt-crown { margin-left: 4px; }
-@media (prefers-reduced-motion: reduce) { .tt-mvp-crown { animation: none; } .tt-bar-fill { transition: none; } }
-
 /* Team vibe in the header */
 .tt-vibe { margin: 12px 0 0; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 14px; border-radius: 14px; max-width: 100%;
   background: color-mix(in srgb, var(--panel) 70%, transparent); border: 1px solid color-mix(in srgb, var(--green) 35%, var(--line)); font-size: 15px; }
@@ -240,26 +209,3 @@ html { scroll-behavior: smooth; }
 .tt-sheet .tt-person-cell { font-weight: 600; }
 .tt-sheet tr.tt-group-start > * { border-top: 2px solid var(--line); }
 .tt-sheet tfoot th, .tt-sheet tfoot td { border-top: 2px solid var(--line); border-bottom: 0; font-weight: 600; background: color-mix(in srgb, var(--accent) 10%, var(--panel)); }
-
-/* Weekly awards */
-.tt-awards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
-.tt-award { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 18px; border: 1px solid var(--line);
-  background: linear-gradient(150deg, color-mix(in srgb, var(--award, var(--yellow)) 22%, var(--panel)), var(--panel) 70%); }
-.tt-award-head { display: flex; align-items: center; gap: 8px; }
-.tt-award-icon { font-size: 30px; line-height: 1; }
-.tt-award-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; opacity: .75; }
-.tt-award-winner { font-size: 18px; font-weight: 700; line-height: 1.2; }
-.tt-award-stat { font-size: 13px; color: var(--muted); }
-.tt-award-none { font-size: 14px; color: var(--muted); }
-.tt-award-rank { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
-.tt-award-rank li { display: grid; grid-template-columns: 70px 1fr auto; align-items: center; gap: 6px; }
-.tt-award-rank .tt-bar-track { height: 6px; }
-.tt-award-rank .is-winner { font-weight: 700; }
-.tt-award-rank .tt-val { color: var(--muted); font-variant-numeric: tabular-nums; }
-
-.tt-standings { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
-.tt-standings li { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); font-size: 14px; }
-.tt-standings li.is-top { border: 2px solid var(--yellow); font-weight: 600; }
-.tt-standings .tt-place { font-size: 18px; line-height: 1; min-width: 22px; text-align: center; }
-.tt-standings .tt-pts { font-weight: 700; font-variant-numeric: tabular-nums; }
-.tt-standings .tt-pts small { font-weight: 500; color: var(--muted); }

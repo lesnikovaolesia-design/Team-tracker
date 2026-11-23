@@ -81,7 +81,7 @@
 
   // ---------- rendering ----------
   function renderAll() {
-    renderHeader(); renderFun(); renderBoard(); renderGrid(); renderChips(); renderChart(); renderLog(); renderTouchedFilters(); renderTouched();
+    renderHeader(); renderFun(); renderGrid(); renderChips(); renderChart(); renderLog(); renderTouchedFilters(); renderTouched();
   }
 
   const weekText = (w) => {
@@ -143,7 +143,6 @@
       const tr = el('tr');
       const th = el('th'); th.scope = 'row';
       const pb = el('button', 'tt-person', person); pb.type = 'button';
-      if (WINNER_ICONS.has(person)) { const c = el('span', 'tt-crown', WINNER_ICONS.get(person)); c.title = 'This week’s award'; pb.append(c); }
       pb.setAttribute('aria-pressed', String(S.person === person && !S.day));
       pb.addEventListener('click', () => { S.person = S.person === person && !S.day ? '' : person; S.day = ''; renderAfterFilter(); });
       th.append(pb); tr.append(th);
@@ -390,142 +389,6 @@
     }));
   }
 
-
-  // ---------- gamification: who logs fastest ----------
-  const toMs = (t) => Date.parse(String(t || '').replace(/([+-]\d{2})(\d{2})$/, '$1:$2'));
-  // Hours between finishing the work (start + duration) and adding it to Jira.
-  const delayH = (r) => {
-    const s = toMs(r.started), c = toMs(r.created);
-    if (!Number.isFinite(s) || !Number.isFinite(c)) return null;
-    return Math.max(0, (c - (s + r.hours * 3600000)) / 3600000);
-  };
-  const median = (xs) => { if (!xs.length) return null; const a = [...xs].sort((x, y) => x - y); const m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
-  const fmtDelay = (h) => (h == null ? '—' : h < 1 ? `${Math.max(1, Math.round(h * 60))} min` : h < 48 ? `${fmtH(Math.round(h * 10) / 10)} h` : `${Math.round(h / 24)} days`);
-
-  const AWARDS = [
-    {id: 'first', icon: '🐦', title: 'First to log', color: 'var(--blue)'},
-    {id: 'fast', icon: '⚡', title: 'Fastest', color: 'var(--purple)'},
-    {id: 'streak', icon: '🔥', title: 'Streak', color: 'var(--orange)'},
-    {id: 'same', icon: '⏰', title: 'Same day', color: 'var(--green)'},
-    {id: 'all', icon: '✅', title: 'Logged everything', color: 'var(--pink)'},
-  ];
-
-  // Each metric: value per person (null = not eligible), higher is better after "better" is applied.
-  function awardMetrics() {
-    const today = todayIso();
-    const days = weekDays().filter((d) => !isWeekend(d) && d <= today);
-    const pastDays = days.filter((d) => d < today);
-    const goalDays = pastDays.length ? pastDays : days;
-    const logs = weekLogs();
-    const byPerson = new Map(DATA.team.map((p) => [p, logs.filter((r) => r.person === p)]));
-
-    // First to log: per day, who created that day's earliest entry.
-    const firstWins = new Map(DATA.team.map((p) => [p, 0]));
-    for (const d of days) {
-      const rows = logs.filter((r) => r.day === d && Number.isFinite(toMs(r.created)));
-      if (!rows.length) continue;
-      const best = Math.min(...rows.map((r) => toMs(r.created)));
-      new Set(rows.filter((r) => toMs(r.created) === best).map((r) => r.person)).forEach((p) => firstWins.set(p, firstWins.get(p) + 1));
-    }
-
-    // Streak: longest run of workdays logged on the same day, overlapping this week.
-    const allDays = [];
-    for (let d = DATA.weeks[0].week_start; d <= week().week_end && d <= today; d = addDays(d, 1)) if (!isWeekend(d)) allDays.push(d);
-    const streakOf = (p) => {
-      let best = 0, run = 0;
-      for (const d of allDays) {
-        const rows = DATA.worklogs.filter((r) => r.person === p && r.day === d);
-        const ok = rows.length && rows.every((r) => (r.created || '9999').slice(0, 10) <= d);
-        if (ok) { run++; if (d >= week().week_start) best = Math.max(best, run); }
-        else if (d !== today) run = 0;
-      }
-      return best;
-    };
-
-    const out = {};
-    out.first = DATA.team.map((p) => ({person: p, value: days.length ? firstWins.get(p) : null, label: (v) => `${v} ${v === 1 ? 'day' : 'days'} first`}));
-    out.fast = DATA.team.map((p) => {
-      const ds = byPerson.get(p).map(delayH).filter((x) => x != null);
-      return {person: p, value: ds.length >= 3 ? median(ds) : null, lowerIsBetter: true, label: (v) => fmtDelay(v)};
-    });
-    out.streak = DATA.team.map((p) => ({person: p, value: allDays.length ? streakOf(p) : null, label: (v) => `${v} ${v === 1 ? 'day' : 'days'}`}));
-    out.same = DATA.team.map((p) => {
-      const rows = byPerson.get(p).filter((r) => r.created);
-      const h = rows.reduce((s, r) => s + r.hours, 0);
-      const ok = rows.filter((r) => r.created.slice(0, 10) <= r.day).reduce((s, r) => s + r.hours, 0);
-      return {person: p, value: h ? Math.round((ok / h) * 100) : null, label: (v) => `${v}%`};
-    });
-    out.all = DATA.team.map((p) => {
-      if (!goalDays.length) return {person: p, value: null};
-      const got = goalDays.reduce((s, d) => s + Math.min(GOAL(), byPerson.get(p).filter((r) => r.day === d).reduce((a, r) => a + r.hours, 0)), 0);
-      return {person: p, value: Math.round((got / (GOAL() * goalDays.length)) * 100), label: (v) => `${v}% of goal`};
-    });
-    return out;
-  }
-
-  // Rank each category, then hand out awards so nobody gets more than one.
-  function pickWinners(metrics) {
-    const ranked = {};
-    for (const a of AWARDS) {
-      const rows = metrics[a.id].filter((m) => m.value != null && (m.lowerIsBetter || m.value > 0));
-      rows.sort((x, y) => (x.lowerIsBetter ? x.value - y.value : y.value - x.value) || DATA.team.indexOf(x.person) - DATA.team.indexOf(y.person));
-      ranked[a.id] = rows;
-    }
-    const winners = {}, taken = new Set();
-    const open = new Set(AWARDS.map((a) => a.id));
-    while (open.size) {
-      // Give out first the award whose best free candidate leads it most clearly (position in ranking, then category order).
-      let pick = null;
-      for (const id of open) {
-        const pos = ranked[id].findIndex((m) => !taken.has(m.person));
-        if (pos < 0) continue;
-        if (!pick || pos < pick.pos) pick = {id, pos};
-      }
-      if (!pick) break;
-      const m = ranked[pick.id][pick.pos];
-      winners[pick.id] = {...m, leader: ranked[pick.id][0], passedOn: pick.pos > 0};
-      taken.add(m.person); open.delete(pick.id);
-    }
-    return {ranked, winners};
-  }
-
-  let WINNER_ICONS = new Map();
-  function renderBoard() {
-    const metrics = awardMetrics();
-    const {ranked, winners} = pickWinners(metrics);
-    WINNER_ICONS = new Map();
-    for (const a of AWARDS) if (winners[a.id]) WINNER_ICONS.set(winners[a.id].person, (WINNER_ICONS.get(winners[a.id].person) || '') + a.icon);
-    $('count-board').textContent = String(Object.keys(winners).length);
-    $('awards').replaceChildren(...AWARDS.map((a) => {
-      const li = el('li', 'tt-award'); li.style.setProperty('--award', a.color);
-      const head = el('div', 'tt-award-head');
-      const icon = el('span', 'tt-award-icon', a.icon); icon.setAttribute('aria-hidden', 'true');
-      head.append(icon, el('span', 'tt-award-title', a.title));
-      li.append(head);
-      const w = winners[a.id];
-      if (w) {
-        li.append(el('div', 'tt-award-winner', w.person));
-        li.append(el('div', 'tt-award-stat', w.passedOn ? `${w.label(w.value)} · ${w.leader.person.split(' ')[0]} led but already has an award` : w.label(w.value)));
-      } else li.append(el('div', 'tt-award-none', 'No winner yet this week'));
-      const rows = ranked[a.id];
-      if (rows.length) {
-        const vals = rows.map((m) => m.value);
-        const best = rows[0].lowerIsBetter ? Math.min(...vals) : Math.max(...vals);
-        const worst = rows[0].lowerIsBetter ? Math.max(...vals) : 0;
-        const ol = el('ol', 'tt-award-rank');
-        rows.slice(0, 5).forEach((m) => {
-          const item = el('li', w && m.person === w.person ? 'is-winner' : '');
-          const pct = m.lowerIsBetter ? (worst === best ? 100 : Math.max(8, 100 - ((m.value - best) / (worst - best)) * 92)) : (best ? (m.value / best) * 100 : 0);
-          const track = el('div', 'tt-bar-track'); const fill = el('div', 'tt-bar-fill'); fill.style.width = `${Math.round(pct)}%`; track.append(fill);
-          item.append(el('span', '', m.person.split(' ')[0]), track, el('span', 'tt-val', m.label(m.value)));
-          ol.append(item);
-        });
-        li.append(ol);
-      }
-      li.setAttribute('aria-label', `${a.title}: ${w ? `${w.person}, ${w.label(w.value)}` : 'no winner yet'}`);
-      return li;
-    }));
-  }
 
   // ---------- controls ----------
   const go = (i) => { S.week = Math.max(0, Math.min(DATA.weeks.length - 1, i)); S.day = ''; renderAll(); };
