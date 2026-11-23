@@ -54,6 +54,20 @@ by anyone, including the team's names and Jira account IDs in `scripts/team.mjs`
 the address shown under **Settings → Pages**, usually
 `https://lesnikovaolesia-design.github.io/Team-tracker/`.
 
+### 5. Optional: projects the main account can't see
+
+The job only sees what the `JIRA_API_TOKEN` account can see. If a teammate logs
+time in a project that account has no access to, either:
+
+- **Best:** use a Jira account that can read every project the team works in,
+  such as a shared service account. Ask your Jira admin.
+- **Or add up to 4 extra accounts.** Give the teammate access to this repository
+  (**Settings → Collaborators**). She creates her own API token and adds two
+  secrets herself, so nobody else sees her token:
+  `JIRA_EMAIL_2` and `JIRA_API_TOKEN_2` (the next person uses `_3`, and so on up to `_5`).
+  The job reads Jira with every account and counts each time entry once.
+  An extra account that stops working is skipped, and the job notes it in its log.
+
 ## Trying the page locally
 
 ```bash

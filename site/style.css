@@ -240,3 +240,26 @@ html { scroll-behavior: smooth; }
 .tt-sheet .tt-person-cell { font-weight: 600; }
 .tt-sheet tr.tt-group-start > * { border-top: 2px solid var(--line); }
 .tt-sheet tfoot th, .tt-sheet tfoot td { border-top: 2px solid var(--line); border-bottom: 0; font-weight: 600; background: color-mix(in srgb, var(--accent) 10%, var(--panel)); }
+
+/* Weekly awards */
+.tt-awards { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.tt-award { display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 18px; border: 1px solid var(--line);
+  background: linear-gradient(150deg, color-mix(in srgb, var(--award, var(--yellow)) 22%, var(--panel)), var(--panel) 70%); }
+.tt-award-head { display: flex; align-items: center; gap: 8px; }
+.tt-award-icon { font-size: 30px; line-height: 1; }
+.tt-award-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; opacity: .75; }
+.tt-award-winner { font-size: 18px; font-weight: 700; line-height: 1.2; }
+.tt-award-stat { font-size: 13px; color: var(--muted); }
+.tt-award-none { font-size: 14px; color: var(--muted); }
+.tt-award-rank { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.tt-award-rank li { display: grid; grid-template-columns: 70px 1fr auto; align-items: center; gap: 6px; }
+.tt-award-rank .tt-bar-track { height: 6px; }
+.tt-award-rank .is-winner { font-weight: 700; }
+.tt-award-rank .tt-val { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.tt-standings { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.tt-standings li { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); font-size: 14px; }
+.tt-standings li.is-top { border: 2px solid var(--yellow); font-weight: 600; }
+.tt-standings .tt-place { font-size: 18px; line-height: 1; min-width: 22px; text-align: center; }
+.tt-standings .tt-pts { font-weight: 700; font-variant-numeric: tabular-nums; }
+.tt-standings .tt-pts small { font-weight: 500; color: var(--muted); }

@@ -6,6 +6,8 @@
 //   JIRA_API_TOKEN    an Atlassian API token (read access to the projects)
 //   TRACKER_PASSWORD  the team password the page asks for
 // Optional: JIRA_SITE (default trialinteractive.atlassian.net), TRACKER_TZ (default Europe/Kyiv)
+// Extra accounts, for projects the main account can't see: JIRA_EMAIL_2 + JIRA_API_TOKEN_2,
+// up to _5. Results from all accounts are merged, and each time entry is counted once.
 //
 // Run: node scripts/fetch.mjs
 
@@ -20,33 +22,49 @@ for (const [k, v] of Object.entries({JIRA_EMAIL, JIRA_API_TOKEN, TRACKER_PASSWOR
 }
 
 const BASE = `https://${SITE}`;
-const AUTH = 'Basic ' + Buffer.from(`${JIRA_EMAIL}:${JIRA_API_TOKEN}`).toString('base64');
+const basic = (email, token) => 'Basic ' + Buffer.from(`${email}:${token}`).toString('base64');
+const ACCOUNTS = [basic(JIRA_EMAIL, JIRA_API_TOKEN)];
+for (let i = 2; i <= 5; i++) {
+  const e = process.env[`JIRA_EMAIL_${i}`], t = process.env[`JIRA_API_TOKEN_${i}`];
+  if (e && t) ACCOUNTS.push(basic(e, t));
+}
+const AUTH = ACCOUNTS[0];
 const BY_ID = new Map(TEAM.map((p) => [p.id, p.name]));
 
-async function jira(path, {method = 'GET', body} = {}, attempt = 1) {
+async function jira(path, {method = 'GET', body, auth = AUTH} = {}, attempt = 1) {
   const res = await fetch(BASE + path, {
     method,
-    headers: {Authorization: AUTH, Accept: 'application/json', ...(body ? {'Content-Type': 'application/json'} : {})},
+    headers: {Authorization: auth, Accept: 'application/json', ...(body ? {'Content-Type': 'application/json'} : {})},
     body: body ? JSON.stringify(body) : undefined,
   });
   if (res.status === 429 && attempt <= 5) {
     const wait = Number(res.headers.get('retry-after') || 2 * attempt) * 1000;
     await new Promise((r) => setTimeout(r, wait));
-    return jira(path, {method, body}, attempt + 1);
+    return jira(path, {method, body, auth}, attempt + 1);
   }
   if (!res.ok) throw new Error(`Jira ${method} ${path.split('?')[0]} failed: ${res.status} ${(await res.text()).slice(0, 300)}`);
   return res.json();
 }
 
-async function search(jql, fields, limit = 1000) {
+async function search(jql, fields, limit = 1000, auth = AUTH) {
   const out = [];
   let nextPageToken;
   do {
-    const page = await jira('/rest/api/3/search/jql', {method: 'POST', body: {jql, fields, maxResults: 100, ...(nextPageToken ? {nextPageToken} : {})}});
+    const page = await jira('/rest/api/3/search/jql', {auth, method: 'POST', body: {jql, fields, maxResults: 100, ...(nextPageToken ? {nextPageToken} : {})}});
     out.push(...(page.issues || []));
     nextPageToken = page.isLast ? undefined : page.nextPageToken;
   } while (nextPageToken && out.length < limit);
   return {issues: out, truncated: Boolean(nextPageToken)};
+}
+
+// An extra account that fails (expired token, no access) is skipped with a warning; the main one must work.
+async function searchAs(auth, jql, fields, limit) {
+  try { return await search(jql, fields, limit, auth); }
+  catch (e) {
+    if (auth === AUTH) throw e;
+    console.warn(`Skipped an extra Jira account: ${e.message}`);
+    return {issues: [], truncated: false};
+  }
 }
 
 // Dates in the team's time zone.
@@ -78,7 +96,14 @@ const status = (f) => ({
 async function worklogRows() {
   // Search a day wider on each side; Jira compares worklog dates in the token owner's time zone.
   const jql = `worklogAuthor in (${ids}) AND worklogDate >= "${iso(addDays(new Date(from + 'T00:00:00Z'), -1))}" AND worklogDate <= "${iso(addDays(new Date(to + 'T00:00:00Z'), 1))}" ORDER BY updated DESC`;
-  const {issues, truncated} = await search(jql, ['summary', 'status', 'project', 'issuetype', 'parent']);
+  const found = new Map();
+  let truncated = false;
+  for (const auth of ACCOUNTS) {
+    const r = await searchAs(auth, jql, ['summary', 'status', 'project', 'issuetype', 'parent'], 1000);
+    truncated ||= r.truncated;
+    for (const it of r.issues) if (!found.has(it.key)) found.set(it.key, {...it, auth});
+  }
+  const issues = [...found.values()];
   const after = Date.parse(from + 'T00:00:00Z') - 2 * 86400000;
   const before = Date.parse(to + 'T23:59:59Z') + 2 * 86400000;
   const rows = [];
@@ -88,7 +113,7 @@ async function worklogRows() {
       const all = [];
       let startAt = 0;
       for (;;) {
-        const page = await jira(`/rest/api/3/issue/${encodeURIComponent(it.key)}/worklog?startedAfter=${after}&startedBefore=${before}&startAt=${startAt}&maxResults=1000`);
+        const page = await jira(`/rest/api/3/issue/${encodeURIComponent(it.key)}/worklog?startedAfter=${after}&startedBefore=${before}&startAt=${startAt}&maxResults=1000`, {auth: it.auth});
         all.push(...(page.worklogs || []));
         startAt += (page.worklogs || []).length;
         if (!page.worklogs?.length || startAt >= (page.total || 0)) break;
@@ -124,9 +149,13 @@ async function touchedRows() {
   for (const w of weeks) {
     const lists = await Promise.all(TEAM.map(async (p) => {
       const jql = `(assignee = "${p.id}" AND statusCategory != Done) OR issuekey in updatedBy("${p.id}", "${w.week_start}", "${w.week_end}") OR (reporter = "${p.id}" AND created >= "${w.week_start}" AND created <= "${w.week_end} 23:59") ORDER BY updated DESC`;
-      const r = await search(jql, fields, 200);
-      truncated ||= r.truncated;
-      return r.issues.map((it) => {
+      const seen = new Map();
+      for (const auth of ACCOUNTS) {
+        const r = await searchAs(auth, jql, fields, 200);
+        truncated ||= r.truncated;
+        for (const it of r.issues) if (!seen.has(it.key)) seen.set(it.key, it);
+      }
+      return [...seen.values()].map((it) => {
         const f = it.fields || {};
         const cat = f.status?.statusCategory?.key || '';
         const assigned = f.assignee?.accountId === p.id;
@@ -158,4 +187,5 @@ const payload = {
 };
 await mkdir(new URL('../site/', import.meta.url), {recursive: true});
 await writeFile(new URL('../site/data.enc.json', import.meta.url), JSON.stringify(await encryptJson(payload, TRACKER_PASSWORD)));
+console.log(`Read Jira with ${ACCOUNTS.length} account${ACCOUNTS.length > 1 ? 's' : ''}.`);
 console.log(`Wrote ${wl.rows.length} time entries and ${Object.values(tc.byWeek).flat().length} ticket rows for ${weeks.length} weeks in ${((Date.now() - started) / 1000).toFixed(1)} s.`);

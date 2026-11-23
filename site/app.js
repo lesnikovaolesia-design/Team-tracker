@@ -143,7 +143,7 @@
       const tr = el('tr');
       const th = el('th'); th.scope = 'row';
       const pb = el('button', 'tt-person', person); pb.type = 'button';
-      if (person === LEADER) { const c = el('span', 'tt-crown', '⚡'); c.title = 'This week’s fastest logger'; pb.append(c); }
+      if (WINNER_ICONS.has(person)) { const c = el('span', 'tt-crown', WINNER_ICONS.get(person)); c.title = 'This week’s award'; pb.append(c); }
       pb.setAttribute('aria-pressed', String(S.person === person && !S.day));
       pb.addEventListener('click', () => { S.person = S.person === person && !S.day ? '' : person; S.day = ''; renderAfterFilter(); });
       th.append(pb); tr.append(th);
@@ -399,73 +399,157 @@
     if (!Number.isFinite(s) || !Number.isFinite(c)) return null;
     return Math.max(0, (c - (s + r.hours * 3600000)) / 3600000);
   };
-  const speedFactor = (d) => (d <= 1 ? 1 : d <= 4 ? 0.8 : d <= 12 ? 0.55 : d <= 36 ? 0.25 : 0);
   const median = (xs) => { if (!xs.length) return null; const a = [...xs].sort((x, y) => x - y); const m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
   const fmtDelay = (h) => (h == null ? '—' : h < 1 ? `${Math.max(1, Math.round(h * 60))} min` : h < 48 ? `${fmtH(Math.round(h * 10) / 10)} h` : `${Math.round(h / 24)} days`);
 
-  function scoreWeek() {
+  const AWARDS = [
+    {id: 'first', icon: '🐦', title: 'First to log', color: 'var(--blue)'},
+    {id: 'fast', icon: '⚡', title: 'Fastest', color: 'var(--purple)'},
+    {id: 'streak', icon: '🔥', title: 'Streak', color: 'var(--orange)'},
+    {id: 'same', icon: '⏰', title: 'Same day', color: 'var(--green)'},
+    {id: 'all', icon: '✅', title: 'Logged everything', color: 'var(--pink)'},
+  ];
+
+  // Each metric: value per person (null = not eligible), higher is better after "better" is applied.
+  function awardMetrics() {
     const today = todayIso();
+    const days = weekDays().filter((d) => !isWeekend(d) && d <= today);
+    const pastDays = days.filter((d) => d < today);
+    const goalDays = pastDays.length ? pastDays : days;
     const logs = weekLogs();
-    const inWeek = week().week_start <= today && today <= week().week_end;
-    const players = DATA.team.map((person) => {
-      const mine = logs.filter((r) => r.person === person);
-      const timed = mine.map((r) => ({r, d: delayH(r)})).filter((x) => x.d != null);
-      const hours = timed.reduce((s, x) => s + x.r.hours, 0);
-      const score = hours ? Math.round((timed.reduce((s, x) => s + x.r.hours * speedFactor(x.d), 0) / hours) * 100) : 0;
-      const med = median(timed.map((x) => x.d));
-      const sameDay = hours ? timed.filter((x) => (x.r.created || '').slice(0, 10) <= x.r.day).reduce((s, x) => s + x.r.hours, 0) / hours : 0;
-      // Streak: consecutive workdays (back from yesterday) where everything was logged the same day.
-      let streak = 0;
-      for (let d = addDays(today, -1), guard = 0; guard < 70; guard++, d = addDays(d, -1)) {
-        if (d < DATA.weeks[0].week_start) break;
-        if (isWeekend(d)) continue;
-        const rows = DATA.worklogs.filter((r) => r.person === person && r.day === d);
-        if (rows.length && rows.every((r) => (r.created || '9999').slice(0, 10) <= d)) streak++; else break;
+    const byPerson = new Map(DATA.team.map((p) => [p, logs.filter((r) => r.person === p)]));
+
+    // First to log: per day, who created that day's earliest entry.
+    const firstWins = new Map(DATA.team.map((p) => [p, 0]));
+    for (const d of days) {
+      const rows = logs.filter((r) => r.day === d && Number.isFinite(toMs(r.created)));
+      if (!rows.length) continue;
+      const best = Math.min(...rows.map((r) => toMs(r.created)));
+      new Set(rows.filter((r) => toMs(r.created) === best).map((r) => r.person)).forEach((p) => firstWins.set(p, firstWins.get(p) + 1));
+    }
+
+    // Streak: longest run of workdays logged on the same day, overlapping this week.
+    const allDays = [];
+    for (let d = DATA.weeks[0].week_start; d <= week().week_end && d <= today; d = addDays(d, 1)) if (!isWeekend(d)) allDays.push(d);
+    const streakOf = (p) => {
+      let best = 0, run = 0;
+      for (const d of allDays) {
+        const rows = DATA.worklogs.filter((r) => r.person === p && r.day === d);
+        const ok = rows.length && rows.every((r) => (r.created || '9999').slice(0, 10) <= d);
+        if (ok) { run++; if (d >= week().week_start) best = Math.max(best, run); }
+        else if (d !== today) run = 0;
       }
-      const badges = [];
-      if (med != null && med <= 1) badges.push('⚡ Lightning');
-      if (hours && sameDay >= 0.9) badges.push('⏰ Same-day logger');
-      if (inWeek && streak >= 5) badges.push(`🔥 ${streak}-day streak`);
-      if (timed.some((x) => x.d <= 0.05)) badges.push('⏱️ Live timer');
-      return {person, score, med, sameDay, entries: timed.length, streak: inWeek ? streak : 0, badges};
+      return best;
+    };
+
+    const out = {};
+    out.first = DATA.team.map((p) => ({person: p, value: days.length ? firstWins.get(p) : null, label: (v) => `${v} ${v === 1 ? 'day' : 'days'} first`}));
+    out.fast = DATA.team.map((p) => {
+      const ds = byPerson.get(p).map(delayH).filter((x) => x != null);
+      return {person: p, value: ds.length >= 3 ? median(ds) : null, lowerIsBetter: true, label: (v) => fmtDelay(v)};
     });
-    const todays = DATA.worklogs.filter((r) => inWeek && r.day === today && r.created).sort((a, b) => toMs(a.created) - toMs(b.created));
-    if (todays.length) { const p = players.find((x) => x.person === todays[0].person); if (p) p.badges.push('🐦 Early bird'); }
-    players.sort((a, b) => b.score - a.score || (a.med ?? 1e9) - (b.med ?? 1e9) || DATA.team.indexOf(a.person) - DATA.team.indexOf(b.person));
-    return players;
+    out.streak = DATA.team.map((p) => ({person: p, value: allDays.length ? streakOf(p) : null, label: (v) => `${v} ${v === 1 ? 'day' : 'days'}`}));
+    out.same = DATA.team.map((p) => {
+      const rows = byPerson.get(p).filter((r) => r.created);
+      const h = rows.reduce((s, r) => s + r.hours, 0);
+      const ok = rows.filter((r) => r.created.slice(0, 10) <= r.day).reduce((s, r) => s + r.hours, 0);
+      return {person: p, value: h ? Math.round((ok / h) * 100) : null, label: (v) => `${v}%`};
+    });
+    out.all = DATA.team.map((p) => {
+      if (!goalDays.length) return {person: p, value: null};
+      const got = goalDays.reduce((s, d) => s + Math.min(GOAL(), byPerson.get(p).filter((r) => r.day === d).reduce((a, r) => a + r.hours, 0)), 0);
+      return {person: p, value: Math.round((got / (GOAL() * goalDays.length)) * 100), label: (v) => `${v}% of goal`};
+    });
+    return out;
   }
 
-  let LEADER = '';
+  // Rank each category, then hand out awards so nobody gets more than one.
+  function pickWinners(metrics) {
+    const ranked = {};
+    for (const a of AWARDS) {
+      const rows = metrics[a.id].filter((m) => m.value != null && (m.lowerIsBetter || m.value > 0));
+      rows.sort((x, y) => (x.lowerIsBetter ? x.value - y.value : y.value - x.value) || DATA.team.indexOf(x.person) - DATA.team.indexOf(y.person));
+      ranked[a.id] = rows;
+    }
+    const winners = {}, taken = new Set();
+    const open = new Set(AWARDS.map((a) => a.id));
+    while (open.size) {
+      // Give out first the award whose best free candidate leads it most clearly (position in ranking, then category order).
+      let pick = null;
+      for (const id of open) {
+        const pos = ranked[id].findIndex((m) => !taken.has(m.person));
+        if (pos < 0) continue;
+        if (!pick || pos < pick.pos) pick = {id, pos};
+      }
+      if (!pick) break;
+      const m = ranked[pick.id][pick.pos];
+      winners[pick.id] = {...m, leader: ranked[pick.id][0], passedOn: pick.pos > 0};
+      taken.add(m.person); open.delete(pick.id);
+    }
+    return {ranked, winners};
+  }
+
+  let WINNER_ICONS = new Map();
   function renderBoard() {
-    const players = scoreWeek();
-    const top = players[0];
-    LEADER = top && top.entries > 0 ? top.person : '';
-    $('count-board').textContent = LEADER ? LEADER.split(' ')[0] : '';
+    const metrics = awardMetrics();
+    const {ranked, winners} = pickWinners(metrics);
+    WINNER_ICONS = new Map();
+    for (const a of AWARDS) if (winners[a.id]) WINNER_ICONS.set(winners[a.id].person, (WINNER_ICONS.get(winners[a.id].person) || '') + a.icon);
+    // Overall standings: points for real places in every category.
+    const PLACE_PTS = [5, 3, 2, 1];
+    const pts = new Map(DATA.team.map((p) => [p, 0]));
+    for (const a of AWARDS) {
+      let place = 0, last = null;
+      ranked[a.id].forEach((m, i) => { if (m.value !== last) { place = i; last = m.value; } if (place < PLACE_PTS.length) pts.set(m.person, pts.get(m.person) + PLACE_PTS[place]); });
+    }
+    const table = [...pts.entries()].sort((x, y) => y[1] - x[1] || DATA.team.indexOf(x[0]) - DATA.team.indexOf(y[0]));
+    const topPts = table.length ? table[0][1] : 0;
     const mvp = $('mvp');
-    if (LEADER) {
-      const crown = el('div', 'tt-mvp-crown', '⚡'); crown.setAttribute('aria-hidden', 'true');
+    if (topPts > 0) {
+      const tops = table.filter(([, v]) => v === topPts).map(([p]) => p.split(' ')[0]);
+      const crown = el('div', 'tt-mvp-crown', '👑'); crown.setAttribute('aria-hidden', 'true');
       const txt = el('div');
-      const tied = players.filter((p) => p.entries && p.score === top.score).map((p) => p.person.split(' ')[0]);
-      txt.append(el('b', '', tied.length > 1 ? `${tied.join(' & ')} are tied for fastest logger!` : `${top.person.split(' ')[0]} is this week’s fastest logger!`),
-        el('p', '', `Typically logs time ${fmtDelay(top.med)} after finishing the work · speed score ${top.score}${top.streak ? ` · 🔥 ${top.streak}-day streak` : ''}`));
+      txt.append(el('b', '', tops.length > 1 ? `${tops.join(' & ')} share player of the week!` : `${tops[0]} is the player of the week!`),
+        el('p', '', `${topPts} points from all five categories`));
       mvp.replaceChildren(crown, txt); mvp.hidden = false;
     } else mvp.hidden = true;
     const medals = ['🥇', '🥈', '🥉'];
-    let rank = 0, last = null;
-    $('board').replaceChildren(...players.map((p, i) => {
-      const key = p.entries ? p.score : -1;
-      if (key !== last) { rank = i + 1; last = key; }
-      const li = el('li', 'tt-player' + (rank === 1 && p.entries ? ' is-first' : ''));
-      const topRow = el('div', 'tt-player-top');
-      topRow.append(rank <= 3 && p.entries ? el('span', 'tt-medal', medals[rank - 1]) : el('span', 'tt-medal tt-rank', `#${rank}`), el('span', 'tt-player-name', p.person));
-      const pts = el('span', 'tt-points', p.entries ? String(p.score) : '—'); pts.append(el('small', '', ' /100')); topRow.append(pts);
-      const track = el('div', 'tt-bar-track'); const fill = el('div', 'tt-bar-fill'); fill.style.width = `${p.score}%`; track.append(fill);
-      const stats = el('div', 'tt-player-stats', p.entries
-        ? `⏱️ logs ${fmtDelay(p.med)} after the work · ${Math.round(p.sameDay * 100)}% the same day${p.streak ? ` · 🔥 ${p.streak}` : ''}`
-        : 'No time logged this week yet');
-      const badges = el('div', 'tt-badges'); p.badges.forEach((b) => badges.append(el('span', 'tt-badge', b)));
-      li.append(topRow, track, stats, badges);
-      li.setAttribute('aria-label', `${rank}. ${p.person}, speed score ${p.entries ? p.score : 'none'}${p.badges.length ? `, badges: ${p.badges.join(', ')}` : ''}`);
+    let place = 0, lastV = null;
+    $('standings').replaceChildren(...table.map(([p, v], i) => {
+      if (v !== lastV) { place = i; lastV = v; }
+      const li = el('li', place === 0 && v > 0 ? 'is-top' : '');
+      const b = el('span', 'tt-pts', String(v)); b.append(el('small', '', ' pts'));
+      li.append(el('span', 'tt-place', v > 0 && place < 3 ? medals[place] : `#${place + 1}`), el('span', '', p.split(' ')[0]), b);
+      return li;
+    }));
+    $('count-board').textContent = topPts > 0 ? table[0][0].split(' ')[0] : '';
+    $('awards').replaceChildren(...AWARDS.map((a) => {
+      const li = el('li', 'tt-award'); li.style.setProperty('--award', a.color);
+      const head = el('div', 'tt-award-head');
+      const icon = el('span', 'tt-award-icon', a.icon); icon.setAttribute('aria-hidden', 'true');
+      head.append(icon, el('span', 'tt-award-title', a.title));
+      li.append(head);
+      const w = winners[a.id];
+      if (w) {
+        li.append(el('div', 'tt-award-winner', w.person));
+        li.append(el('div', 'tt-award-stat', w.passedOn ? `${w.label(w.value)} · ${w.leader.person.split(' ')[0]} led but already has an award` : w.label(w.value)));
+      } else li.append(el('div', 'tt-award-none', 'No winner yet this week'));
+      const rows = ranked[a.id];
+      if (rows.length) {
+        const vals = rows.map((m) => m.value);
+        const best = rows[0].lowerIsBetter ? Math.min(...vals) : Math.max(...vals);
+        const worst = rows[0].lowerIsBetter ? Math.max(...vals) : 0;
+        const ol = el('ol', 'tt-award-rank');
+        rows.slice(0, 5).forEach((m) => {
+          const item = el('li', w && m.person === w.person ? 'is-winner' : '');
+          const pct = m.lowerIsBetter ? (worst === best ? 100 : Math.max(8, 100 - ((m.value - best) / (worst - best)) * 92)) : (best ? (m.value / best) * 100 : 0);
+          const track = el('div', 'tt-bar-track'); const fill = el('div', 'tt-bar-fill'); fill.style.width = `${Math.round(pct)}%`; track.append(fill);
+          item.append(el('span', '', m.person.split(' ')[0]), track, el('span', 'tt-val', m.label(m.value)));
+          ol.append(item);
+        });
+        li.append(ol);
+      }
+      li.setAttribute('aria-label', `${a.title}: ${w ? `${w.person}, ${w.label(w.value)}` : 'no winner yet'}`);
       return li;
     }));
   }

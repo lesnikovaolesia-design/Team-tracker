@@ -56,7 +56,7 @@
       </div>
       <div class="tt-tabs" role="list">
         <a class="tt-tab" role="listitem" href="#daily" data-target="daily">📊 Hours <span class="tt-count" id="count-hours"></span></a>
-        <a class="tt-tab" role="listitem" href="#leaderboard" data-target="leaderboard">⚡ Fastest <span class="tt-count" id="count-board"></span></a>
+        <a class="tt-tab" role="listitem" href="#leaderboard" data-target="leaderboard">🏆 Awards <span class="tt-count" id="count-board"></span></a>
         <a class="tt-tab" role="listitem" href="#projects" data-target="projects">🧭 Projects <span class="tt-count" id="count-projects"></span></a>
         <a class="tt-tab" role="listitem" href="#logged" data-target="logged">🧾 Timesheet <span class="tt-count" id="count-logged"></span></a>
         <a class="tt-tab" role="listitem" href="#touched" data-target="touched">🗂️ Tickets <span class="tt-count" id="count-touched"></span></a>
@@ -91,25 +91,23 @@
     </section>
 
     <section class="tt-section" id="leaderboard">
-      <h2 class="tt-h2">⚡ Fastest logger</h2>
-      <p class="tt-note">Everyone logs their time in the end, so this rewards logging it <b>fast</b>: the sooner an entry lands in Jira after the work is done, the higher your speed score.</p>
+      <h2 class="tt-h2">🏆 Weekly awards</h2>
+      <p class="tt-note">Five awards every week, for five different ways of tracking well. The overall standings add up everyone’s place in all five, and each person can win only one award, so the trophies go around the team.</p>
       <div class="tt-mvp" id="mvp" hidden></div>
-      <ol class="tt-board" id="board"></ol>
+      <ol class="tt-standings" id="standings" aria-label="Overall standings"></ol>
+      <ol class="tt-awards" id="awards"></ol>
       <details class="tt-key-box">
-        <summary>🎮 How the speed score works</summary>
+        <summary>🎮 How the awards are picked</summary>
         <ul class="tt-rules">
-          <li>For each entry we measure the time from when the work ended (its start time plus its duration) to when it was added to Jira.</li>
-          <li>Within 1 hour: <b>100%</b> · within 4 hours: <b>80%</b> · within 12 hours: <b>55%</b> · next day: <b>25%</b> · later: <b>0%</b></li>
-          <li>Your speed score is the average for the week, weighted by hours, from 0 to 100. Logging more hours doesn’t raise it.</li>
+          <li><b>🐦 First to log:</b> the most workdays this week where you added that day’s first time entry in Jira, before anyone else.</li>
+          <li><b>⚡ Fastest:</b> the shortest typical time between finishing a piece of work and logging it (at least 3 entries).</li>
+          <li><b>🔥 Streak:</b> the most workdays in a row with all of that day’s time logged on the same day. Streaks can carry over from earlier weeks.</li>
+          <li><b>⏰ Same day:</b> the biggest share of this week’s hours logged on the day they were for.</li>
+          <li><b>✅ Logged everything:</b> the closest to 8 hours on every past workday this week. Hours above 8 don’t count extra.</li>
+          <li><b>Overall standings:</b> in each of the five categories, 1st place earns 5 points, 2nd 3, 3rd 2 and 4th 1. The most points makes the player of the week.</li>
+          <li><b>One award per person:</b> if the leader of a category already won another award, it goes to the next person in that category. The bars still show everyone’s real result.</li>
         </ul>
-        <ul class="tt-badge-key">
-          <li><span class="tt-badge">⚡ Lightning</span> Typically logs within 1 hour of the work</li>
-          <li><span class="tt-badge">⏱️ Live timer</span> Logged an entry right as the work finished</li>
-          <li><span class="tt-badge">⏰ Same-day logger</span> At least 90% of the week’s time logged on the day</li>
-          <li><span class="tt-badge">🔥 Streak</span> 5 or more workdays in a row with everything logged the same day</li>
-          <li><span class="tt-badge">🐦 Early bird</span> First to log time today</li>
-        </ul>
-        <p class="tt-note">The week’s fastest logger gets a ⚡ next to their name in the hours grid. Rewards are up to the team: coffee, first pick of tasks, or bragging rights.</p>
+        <p class="tt-note">Winners get their award emoji next to their name in the hours grid. Rewards are up to the team: coffee, first pick of tasks, or bragging rights.</p>
       </details>
     </section>
 

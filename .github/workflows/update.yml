@@ -33,6 +33,14 @@ jobs:
           JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           TRACKER_PASSWORD: ${{ secrets.TRACKER_PASSWORD }}
+          JIRA_EMAIL_2: ${{ secrets.JIRA_EMAIL_2 }}
+          JIRA_API_TOKEN_2: ${{ secrets.JIRA_API_TOKEN_2 }}
+          JIRA_EMAIL_3: ${{ secrets.JIRA_EMAIL_3 }}
+          JIRA_API_TOKEN_3: ${{ secrets.JIRA_API_TOKEN_3 }}
+          JIRA_EMAIL_4: ${{ secrets.JIRA_EMAIL_4 }}
+          JIRA_API_TOKEN_4: ${{ secrets.JIRA_API_TOKEN_4 }}
+          JIRA_EMAIL_5: ${{ secrets.JIRA_EMAIL_5 }}
+          JIRA_API_TOKEN_5: ${{ secrets.JIRA_API_TOKEN_5 }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
