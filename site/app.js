@@ -495,34 +495,7 @@
     const {ranked, winners} = pickWinners(metrics);
     WINNER_ICONS = new Map();
     for (const a of AWARDS) if (winners[a.id]) WINNER_ICONS.set(winners[a.id].person, (WINNER_ICONS.get(winners[a.id].person) || '') + a.icon);
-    // Overall standings: points for real places in every category.
-    const PLACE_PTS = [5, 3, 2, 1];
-    const pts = new Map(DATA.team.map((p) => [p, 0]));
-    for (const a of AWARDS) {
-      let place = 0, last = null;
-      ranked[a.id].forEach((m, i) => { if (m.value !== last) { place = i; last = m.value; } if (place < PLACE_PTS.length) pts.set(m.person, pts.get(m.person) + PLACE_PTS[place]); });
-    }
-    const table = [...pts.entries()].sort((x, y) => y[1] - x[1] || DATA.team.indexOf(x[0]) - DATA.team.indexOf(y[0]));
-    const topPts = table.length ? table[0][1] : 0;
-    const mvp = $('mvp');
-    if (topPts > 0) {
-      const tops = table.filter(([, v]) => v === topPts).map(([p]) => p.split(' ')[0]);
-      const crown = el('div', 'tt-mvp-crown', '👑'); crown.setAttribute('aria-hidden', 'true');
-      const txt = el('div');
-      txt.append(el('b', '', tops.length > 1 ? `${tops.join(' & ')} share player of the week!` : `${tops[0]} is the player of the week!`),
-        el('p', '', `${topPts} points from all five categories`));
-      mvp.replaceChildren(crown, txt); mvp.hidden = false;
-    } else mvp.hidden = true;
-    const medals = ['🥇', '🥈', '🥉'];
-    let place = 0, lastV = null;
-    $('standings').replaceChildren(...table.map(([p, v], i) => {
-      if (v !== lastV) { place = i; lastV = v; }
-      const li = el('li', place === 0 && v > 0 ? 'is-top' : '');
-      const b = el('span', 'tt-pts', String(v)); b.append(el('small', '', ' pts'));
-      li.append(el('span', 'tt-place', v > 0 && place < 3 ? medals[place] : `#${place + 1}`), el('span', '', p.split(' ')[0]), b);
-      return li;
-    }));
-    $('count-board').textContent = topPts > 0 ? table[0][0].split(' ')[0] : '';
+    $('count-board').textContent = String(Object.keys(winners).length);
     $('awards').replaceChildren(...AWARDS.map((a) => {
       const li = el('li', 'tt-award'); li.style.setProperty('--award', a.color);
       const head = el('div', 'tt-award-head');
