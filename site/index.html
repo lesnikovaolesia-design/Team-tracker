@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Team Time Tracker</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⏱️</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="tt" id="tracker">
+
+  <!-- Password gate -->
+  <section class="tt-lock" id="lock">
+    <div class="tt-lock-card">
+      <div class="tt-lock-emoji">⏱️🔒</div>
+      <h1>Team Time Tracker</h1>
+      <p>Enter the team password to see this week’s hours.</p>
+      <form id="lock-form" autocomplete="on">
+        <label class="tt-field">Team password
+          <input class="tt-input" type="password" id="lock-pass" autocomplete="current-password" required>
+        </label>
+        <label class="tt-check"><input type="checkbox" id="lock-remember" checked> Remember on this device</label>
+        <button class="tt-btn tt-btn-primary" type="submit">Open tracker</button>
+        <p class="tt-error" id="lock-error" hidden>That password didn’t work. Try again.</p>
+      </form>
+    </div>
+  </section>
+
+  <div id="app" hidden>
+    <header class="tt-head" id="overview">
+      <h1 class="tt-title">⏱️ Team Time Tracker ✨</h1>
+      <p class="tt-lede">In the week of <b id="week-text">—</b>, the team logged <b id="team-hours">—</b> hours in Jira against a goal of <b id="team-goal">—</b> hours.</p>
+    </header>
+
+    <div class="tt-fun">
+      <div class="tt-card tt-joke-card">
+        <p class="tt-kicker">🃏 Joke of the day</p>
+        <div class="tt-joke-emoji" id="joke-emoji">☕</div>
+        <p class="tt-joke" id="joke-text"></p>
+      </div>
+      <div class="tt-card tt-vibe-card">
+        <p class="tt-kicker">🌡️ Team vibe today</p>
+        <p class="tt-joke" id="vibe-text"></p>
+        <p class="tt-note">Based on today’s Team row in the hours grid.</p>
+      </div>
+    </div>
+
+    <div class="tt-bar" id="controls">
+      <button type="button" class="tt-btn" id="prev">← Previous week</button>
+      <span class="tt-week" id="week-label" aria-live="polite">—</span>
+      <button type="button" class="tt-btn" id="next">Next week →</button>
+      <button type="button" class="tt-btn" id="this-week">This week</button>
+      <span class="tt-spacer"></span>
+      <span class="tt-state" id="updated-at"></span>
+      <button type="button" class="tt-btn tt-btn-primary" id="update">🔄 Update</button>
+    </div>
+
+    <section class="tt-section" id="daily">
+      <h2 class="tt-h2">📊 Hours per day</h2>
+      <p class="tt-note">Each cell shows <b>hours logged / daily goal</b>. The goal is 8 hours per person on each workday, so 40 hours a day for the team. Select a person or a cell to filter the tickets below.</p>
+      <details class="tt-key-box">
+        <summary>🎨 What the colors mean</summary>
+        <ul class="tt-key">
+          <li><span class="tt-pill" data-level="ok">8 / 8 🎉</span> Goal met: 8 hours or more</li>
+          <li><span class="tt-pill" data-level="part">5 / 8 ☕</span> Some time logged, under 8 hours</li>
+          <li><span class="tt-pill" data-level="none">0 / 8 😴</span> Past workday, nothing logged</li>
+          <li><span class="tt-pill" data-level="future">0 / 8</span> Today, nothing logged yet</li>
+          <li><span class="tt-pill" data-level="future">·</span> Day still to come</li>
+          <li class="tt-key-sep" aria-hidden="true"></li>
+          <li><span class="tt-key-row">Team</span> Everyone’s hours that day / 40-hour team goal</li>
+          <li><span class="tt-key-row">Week</span> Hours this week / 40-hour goal</li>
+          <li><span class="tt-key-row">Missing</span> Hours short of 8 on past workdays</li>
+          <li><span class="tt-key-row">Days at 8 h</span> Workdays the goal was met</li>
+        </ul>
+      </details>
+      <div class="tt-scroll">
+        <table class="tt-table tt-grid" id="day-grid">
+          <thead id="grid-head"></thead>
+          <tbody id="grid-body"></tbody>
+          <tfoot id="grid-foot"></tfoot>
+        </table>
+      </div>
+    </section>
+
+    <section class="tt-section" id="filter">
+      <h2 class="tt-h2">👀 Show tickets for</h2>
+      <div class="tt-chips" id="chips" role="group" aria-label="Filter by person"></div>
+      <div class="tt-bar">
+        <span class="tt-note" id="filter-text"></span>
+        <button type="button" class="tt-btn" id="clear-day" hidden>Clear day</button>
+      </div>
+    </section>
+
+    <section class="tt-section" id="projects">
+      <h2 class="tt-h2">🧭 Where the time went</h2>
+      <p class="tt-note">One bar per person: their hours in the selected week, split by Jira project. Each color is one project, listed below with the team’s total hours on it. Point at a segment to see its hours.</p>
+      <div class="tt-chart" id="chart"></div>
+      <p class="tt-goal-key"><span class="tt-dash" aria-hidden="true"></span> Dashed line: 40-hour weekly goal for each person</p>
+      <ul class="tt-legend" id="legend" aria-label="Projects"></ul>
+    </section>
+
+    <section class="tt-section" id="logged">
+      <h2 class="tt-h2">🧾 Logged tickets</h2>
+      <p class="tt-note">Every time entry in the selected week, across all projects. Select a ticket key to open it in Jira.</p>
+      <div class="tt-scroll">
+        <table class="tt-table">
+          <thead><tr><th>Day</th><th>Person</th><th>Ticket</th><th>Summary</th><th>Project</th><th>Status</th><th class="tt-num">Hours</th></tr></thead>
+          <tbody id="log-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="tt-section" id="touched">
+      <h2 class="tt-h2">🗂️ Other assigned or touched items</h2>
+      <p class="tt-note">Open tickets assigned to each person, plus tickets they changed, commented on or created during the selected week. Select a column heading to sort.</p>
+      <div class="tt-filters" role="search" aria-label="Filter assigned or touched tickets">
+        <label class="tt-field tt-field-grow">Search
+          <input type="search" class="tt-input" id="t-q" placeholder="Ticket key or summary" autocomplete="off">
+        </label>
+        <label class="tt-field">Project <select class="tt-select" id="t-project"></select></label>
+        <label class="tt-field">Status <select class="tt-select" id="t-status"></select></label>
+        <label class="tt-field">Why it’s listed
+          <select class="tt-select" id="t-rel">
+            <option value="">All reasons</option>
+            <option>Assigned, open</option>
+            <option>Updated this week</option>
+            <option>Created this week</option>
+          </select>
+        </label>
+        <label class="tt-field">Assignee <select class="tt-select" id="t-assignee"></select></label>
+        <button type="button" class="tt-btn" id="t-clear" hidden>Clear filters</button>
+      </div>
+      <p class="tt-note" id="t-count"></p>
+      <div class="tt-scroll">
+        <table class="tt-table" id="touched-table">
+          <thead><tr>
+            <th aria-sort="none"><button type="button" class="tt-sort" data-sort="person">Person</button></th>
+            <th aria-sort="none"><button type="button" class="tt-sort" data-sort="key">Ticket</button></th>
+            <th aria-sort="none"><button type="button" class="tt-sort" data-sort="summary">Summary</button></th>
+            <th aria-sort="none"><button type="button" class="tt-sort" data-sort="project">Project</button></th>
+            <th aria-sort="none"><button type="button" class="tt-sort" data-sort="status">Status</button></th>
+            <th aria-sort="none"><button type="button" class="tt-sort" data-sort="relation">Why it’s listed</button></th>
+            <th aria-sort="none"><button type="button" class="tt-sort" data-sort="assignee">Assignee</button></th>
+            <th aria-sort="none"><button type="button" class="tt-sort" data-sort="updated">Last updated</button></th>
+          </tr></thead>
+          <tbody id="touched-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <details class="tt-details" id="how">
+      <summary>How this works</summary>
+      <p>Hours come from the Jira time entries (worklogs) each person adds. An entry counts on the day it was logged for, in that person’s time zone. A scheduled GitHub job reads Jira about every 30 minutes on workdays and saves an encrypted copy here, so the page shows the time of the last update. 🔄 Update loads the newest saved copy.</p>
+      <p>The data is encrypted with the team password, so only people who know it can read it. <button type="button" class="tt-linkbtn" id="forget">Forget the password on this device</button></p>
+    </details>
+  </div>
+
+  <div class="tt-tip" id="tip" role="tooltip" hidden></div>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+name: Update tracker
+
+on:
+  # Every 30 minutes on workdays, 07:00–22:30 Kyiv time (05:00–20:30 UTC in winter).
+  schedule:
+    - cron: "*/30 5-20 * * 1-5"
+  # A button in the Actions tab to run it now.
+  workflow_dispatch:
+  # Redeploy when the page or script changes.
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Read Jira and write the encrypted data file
+        run: node scripts/fetch.mjs
+        env:
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+          TRACKER_PASSWORD: ${{ secrets.TRACKER_PASSWORD }}
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

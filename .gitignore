@@ -1,0 +1,5 @@
+# The data file is built by the GitHub job and published to Pages only.
+site/data.enc.json
+.env
+.DS_Store
+node_modules/
