@@ -3,15 +3,6 @@
 
   const STORE_KEY = 'tt-pass';
   const COLORS = ['#4a9dff', '#ff5fa8', '#2fc48d', '#ff9a3c', '#9a6bff', '#ffcf3a', '#2ec5d3', '#e76f51', '#8ab17d', '#c77dff'];
-  const JOKES = {
-    1: ['☕🥶', 'Monday stand-up. The American PM asks “How is everyone?” We say “Normal.” The PM writes down: team morale critical.'],
-    2: ['🏆🙂', 'Tuesday: a Slavic designer looks at your work and says “not bad”. Translation for our American colleagues: best work of the decade, frame it.'],
-    3: ['🐛💻', 'Wednesday. Dev: “It works on my machine.” QA: “Great, then we ship your machine.” Product Owner: “Can it be ready by Friday?”'],
-    4: ['📋🙃', 'Thursday: the Product Owner adds “one small thing” to the sprint. The small thing has 14 subtasks and depends on a team nobody has met.'],
-    5: ['🎉🚫', 'Friday 17:55. Americans: “Have an awesome weekend!” Us: “We will see.” Both mean the same thing: nobody deploys.'],
-    6: ['🥟💜', 'Saturday: grandma asks what you do at work. “I move rectangles and argue in Jira.” She nods and gives you more varenyky anyway.'],
-    0: ['🌻🍋', 'Sunday: no stand-ups, no “quick syncs”, no “just circling back”. Only tea with lemon and quiet fear of Monday’s calendar.'],
-  };
   const VIBES = {
     zero: '😴 The timesheet is empty. Even the Product Owner is getting nervous. Coffee first, then Jira? ☕',
     some: '🐢 First hours are in. Progress is “normal”, as we say. 👌',
@@ -63,10 +54,10 @@
     const data = await load(password);
     DATA = data; PASS = password;
     if (remember) store.set(password);
-    const t = DATA.weeks.findIndex((w) => w.week_start <= todayIso() && todayIso() <= w.week_end);
-    S.week = t >= 0 ? t : DATA.weeks.length - 1;
+    S.week = currentWeekIndex();
     $('lock').hidden = true; $('app').hidden = false;
     renderAll();
+    setupNav();
   }
 
   $('lock-form').addEventListener('submit', async (e) => {
@@ -90,14 +81,24 @@
 
   // ---------- rendering ----------
   function renderAll() {
-    renderHeader(); renderFun(); renderGrid(); renderChips(); renderChart(); renderLog(); renderTouchedFilters(); renderTouched();
+    renderHeader(); renderFun(); renderBoard(); renderGrid(); renderChips(); renderChart(); renderLog(); renderTouchedFilters(); renderTouched();
   }
 
-  function renderHeader() {
-    const w = week();
+  const weekText = (w) => {
     const a = parseDay(w.week_start), b = parseDay(w.week_end);
-    const txt = a.getMonth() === b.getMonth() ? `${a.getDate()}–${b.getDate()} ${MON[b.getMonth()]} ${b.getFullYear()}` : `${a.getDate()} ${MON[a.getMonth()]} – ${b.getDate()} ${MON[b.getMonth()]} ${b.getFullYear()}`;
-    $('week-text').textContent = txt; $('week-label').textContent = txt;
+    return a.getMonth() === b.getMonth() ? `${a.getDate()}–${b.getDate()} ${MON[b.getMonth()]} ${b.getFullYear()}` : `${a.getDate()} ${MON[a.getMonth()]} – ${b.getDate()} ${MON[b.getMonth()]} ${b.getFullYear()}`;
+  };
+  const currentWeekIndex = () => { const t = DATA.weeks.findIndex((w) => w.week_start <= todayIso() && todayIso() <= w.week_end); return t >= 0 ? t : DATA.weeks.length - 1; };
+  function renderHeader() {
+    const txt = weekText(week());
+    $('week-text').textContent = txt;
+    const cur = currentWeekIndex();
+    $('week-select').replaceChildren(...DATA.weeks.map((wk, i) => [wk, i]).reverse().map(([wk, i]) => {
+      const short = weekText(wk).replace(` ${new Date().getFullYear()}`, '');
+      return new Option(`${short}${i === cur ? ' · this week' : i === cur - 1 ? ' · last week' : ''}`, String(i));
+    }));
+    $('week-select').value = String(S.week);
+    $('this-week').hidden = S.week === cur;
     const total = weekLogs().reduce((s, r) => s + r.hours, 0);
     $('team-hours').textContent = fmtH(total);
     $('team-goal').textContent = fmtH(DATA.team.length * 5 * GOAL());
@@ -110,8 +111,6 @@
 
   function renderFun() {
     const dow = new Date().getDay();
-    $('joke-emoji').textContent = JOKES[dow][0];
-    $('joke-text').textContent = JOKES[dow][1];
     let vibe = 'weekend';
     if (dow !== 0 && dow !== 6) {
       const today = todayIso();
@@ -144,6 +143,7 @@
       const tr = el('tr');
       const th = el('th'); th.scope = 'row';
       const pb = el('button', 'tt-person', person); pb.type = 'button';
+      if (person === LEADER) { const c = el('span', 'tt-crown', '⚡'); c.title = 'This week’s fastest logger'; pb.append(c); }
       pb.setAttribute('aria-pressed', String(S.person === person && !S.day));
       pb.addEventListener('click', () => { S.person = S.person === person && !S.day ? '' : person; S.day = ''; renderAfterFilter(); });
       th.append(pb); tr.append(th);
@@ -192,15 +192,20 @@
   }
 
   function renderChips() {
-    const all = ['', ...DATA.team];
-    $('chips').replaceChildren(...all.map((p) => {
-      const b = el('button', 'tt-chip' + ((S.person || '') === p ? ' is-on' : ''), p || 'Everyone'); b.type = 'button';
-      b.setAttribute('aria-pressed', String((S.person || '') === p));
-      b.addEventListener('click', () => { S.person = p; S.day = ''; renderAfterFilter(); });
-      return b;
-    }));
-    $('filter-text').textContent = S.person ? `Showing ${S.person}${S.day ? ` on ${dayLabel(S.day)}` : ''}.` : (S.day ? `Showing ${dayLabel(S.day)}.` : 'Showing everyone.');
+    const sel = $('person-select');
+    sel.replaceChildren(new Option('Everyone', ''), ...DATA.team.map((p) => new Option(p, p)));
+    sel.value = S.person || '';
     $('clear-day').hidden = !S.day;
+    $('clear-day').textContent = S.day ? `📅 ${dayLabel(S.day)} ✕` : '';
+    renderCounts();
+  }
+
+  function renderCounts() {
+    const logs = weekLogs();
+    $('count-hours').textContent = `${fmtH(logs.reduce((s, r) => s + r.hours, 0))} h`;
+    $('count-projects').textContent = String(new Set(logs.map((r) => r.project_key)).size);
+    $('count-logged').textContent = String(new Set(logs.filter((r) => (!S.person || r.person === S.person) && (!S.day || r.day === S.day)).map((r) => `${r.person}|${r.key}`)).size);
+    $('count-touched').textContent = String(touchedForPerson().length);
   }
 
   function renderAfterFilter() { renderGrid(); renderChips(); renderLog(); renderTouchedFilters(); renderTouched(); }
@@ -219,7 +224,7 @@
     }));
     if (!logs.length) { box.replaceChildren(el('p', 'tt-note', 'No time logged in this week yet.')); return; }
     const W = Math.max(320, box.clientWidth || 800);
-    const labelW = Math.min(170, W * 0.32);
+    const labelW = W < 520 ? 72 : Math.min(170, W * 0.32);
     const barH = 24, gap = 14, top = 22;
     const H = top + DATA.team.length * (barH + gap);
     const maxH = Math.max(GOAL() * 5, ...DATA.team.map((p) => logs.filter((r) => r.person === p).reduce((s, r) => s + r.hours, 0)));
@@ -239,7 +244,7 @@
     const tip = $('tip');
     DATA.team.forEach((person, i) => {
       const y = top + i * (barH + gap);
-      svg.append(mk('text', {x: 0, y: y + barH / 2, dy: '0.35em'}, person));
+      svg.append(mk('text', {x: 0, y: y + barH / 2, dy: '0.35em'}, W < 520 ? person.split(' ')[0] : person));
       const segs = new Map();
       for (const r of logs.filter((l) => l.person === person)) segs.set(r.project_key, (segs.get(r.project_key) || 0) + r.hours);
       let acc = 0;
@@ -271,7 +276,15 @@
   };
   const statusCell = (name, cat) => { const s = el('span', 'tt-status'); const d = el('span', 'tt-dot'); d.dataset.cat = cat || ''; s.append(d, el('span', '', name)); return s; };
 
+  let LOG_VIEW = 'sheet';
   function renderLog() {
+    $('sheet-wrap').hidden = LOG_VIEW !== 'sheet';
+    $('entries-wrap').hidden = LOG_VIEW !== 'entries';
+    document.querySelectorAll('.tt-seg-btn').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === LOG_VIEW)));
+    $('log-note').textContent = LOG_VIEW === 'sheet'
+      ? 'Hours per ticket and day for the selected week. Long-running tickets show up once, with each day’s hours. Select a ticket key to open it in Jira.'
+      : 'Every single time entry in the selected week, newest first. Select a ticket key to open it in Jira.';
+    renderSheet();
     const rows = weekLogs().filter((r) => (!S.person || r.person === S.person) && (!S.day || r.day === S.day))
       .sort((a, b) => (a.day < b.day ? 1 : a.day > b.day ? -1 : DATA.team.indexOf(a.person) - DATA.team.indexOf(b.person)));
     if (!rows.length) { msgRow($('log-rows'), 7, 'No time entries for this selection.'); return; }
@@ -283,6 +296,45 @@
       tr.append(el('td', '', dayLabel(r.day)), el('td', '', r.person), k, el('td', 'tt-wrap', r.summary), p, st, el('td', 'tt-num', fmtH(r.hours)));
       return tr;
     }));
+  }
+
+  function renderSheet() {
+    const days = visibleDays();
+    const logs = weekLogs().filter((r) => !S.person || r.person === S.person);
+    const groups = new Map();
+    for (const r of logs) {
+      const k = `${r.person}|${r.key}`;
+      const g = groups.get(k) || {person: r.person, key: r.key, summary: r.summary, project_key: r.project_key, project: r.project, status: r.status, status_category: r.status_category, byDay: new Map(), total: 0};
+      g.byDay.set(r.day, (g.byDay.get(r.day) || 0) + r.hours); g.total += r.hours;
+      groups.set(k, g);
+    }
+    let list = [...groups.values()];
+    if (S.day) list = list.filter((g) => (g.byDay.get(S.day) || 0) > 0);
+    list.sort((a, b) => DATA.team.indexOf(a.person) - DATA.team.indexOf(b.person) || b.total - a.total || a.key.localeCompare(b.key));
+    const head = el('tr');
+    head.append(el('th', '', 'Person'), el('th', '', 'Ticket'), el('th', '', 'Summary'));
+    for (const d of days) head.append(el('th', 'tt-h' + (d === S.day ? ' is-day' : ''), dayLabel(d).replace(/ \w+$/, '')));
+    head.append(el('th', 'tt-num', 'Week'));
+    $('sheet-head').replaceChildren(head);
+    const cols = 4 + days.length;
+    if (!list.length) { msgRow($('sheet-rows'), cols, 'No time logged for this selection.'); $('sheet-foot').replaceChildren(); return; }
+    let prev = null;
+    $('sheet-rows').replaceChildren(...list.map((g) => {
+      const tr = el('tr', g.person !== prev ? 'tt-group-start' : '');
+      tr.append(el('td', 'tt-person-cell', g.person !== prev ? g.person : ''));
+      prev = g.person;
+      const k = el('td'); k.append(link(g.key, DATA.site));
+      const sum = el('td', 'tt-wrap'); sum.append(el('span', '', g.summary), el('br'), el('span', 'tt-muted', `${g.project_key} · ${g.status}`));
+      tr.append(k, sum);
+      for (const d of days) { const h = g.byDay.get(d) || 0; tr.append(el('td', 'tt-h' + (h ? '' : ' is-zero') + (d === S.day ? ' is-day' : ''), h ? fmtH(h) : '·')); }
+      tr.append(el('td', 'tt-num tt-total', fmtH(g.total)));
+      return tr;
+    }));
+    const foot = el('tr');
+    const f = el('th', '', 'Total'); f.colSpan = 3; foot.append(f);
+    for (const d of days) foot.append(el('td', 'tt-h' + (d === S.day ? ' is-day' : ''), fmtH(list.reduce((s, g) => s + (g.byDay.get(d) || 0), 0))));
+    foot.append(el('td', 'tt-num', fmtH(list.reduce((s, g) => s + g.total, 0))));
+    $('sheet-foot').replaceChildren(foot);
   }
 
   // ---------- touched table ----------
@@ -338,11 +390,100 @@
     }));
   }
 
+
+  // ---------- gamification: who logs fastest ----------
+  const toMs = (t) => Date.parse(String(t || '').replace(/([+-]\d{2})(\d{2})$/, '$1:$2'));
+  // Hours between finishing the work (start + duration) and adding it to Jira.
+  const delayH = (r) => {
+    const s = toMs(r.started), c = toMs(r.created);
+    if (!Number.isFinite(s) || !Number.isFinite(c)) return null;
+    return Math.max(0, (c - (s + r.hours * 3600000)) / 3600000);
+  };
+  const speedFactor = (d) => (d <= 1 ? 1 : d <= 4 ? 0.8 : d <= 12 ? 0.55 : d <= 36 ? 0.25 : 0);
+  const median = (xs) => { if (!xs.length) return null; const a = [...xs].sort((x, y) => x - y); const m = Math.floor(a.length / 2); return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2; };
+  const fmtDelay = (h) => (h == null ? '—' : h < 1 ? `${Math.max(1, Math.round(h * 60))} min` : h < 48 ? `${fmtH(Math.round(h * 10) / 10)} h` : `${Math.round(h / 24)} days`);
+
+  function scoreWeek() {
+    const today = todayIso();
+    const logs = weekLogs();
+    const inWeek = week().week_start <= today && today <= week().week_end;
+    const players = DATA.team.map((person) => {
+      const mine = logs.filter((r) => r.person === person);
+      const timed = mine.map((r) => ({r, d: delayH(r)})).filter((x) => x.d != null);
+      const hours = timed.reduce((s, x) => s + x.r.hours, 0);
+      const score = hours ? Math.round((timed.reduce((s, x) => s + x.r.hours * speedFactor(x.d), 0) / hours) * 100) : 0;
+      const med = median(timed.map((x) => x.d));
+      const sameDay = hours ? timed.filter((x) => (x.r.created || '').slice(0, 10) <= x.r.day).reduce((s, x) => s + x.r.hours, 0) / hours : 0;
+      // Streak: consecutive workdays (back from yesterday) where everything was logged the same day.
+      let streak = 0;
+      for (let d = addDays(today, -1), guard = 0; guard < 70; guard++, d = addDays(d, -1)) {
+        if (d < DATA.weeks[0].week_start) break;
+        if (isWeekend(d)) continue;
+        const rows = DATA.worklogs.filter((r) => r.person === person && r.day === d);
+        if (rows.length && rows.every((r) => (r.created || '9999').slice(0, 10) <= d)) streak++; else break;
+      }
+      const badges = [];
+      if (med != null && med <= 1) badges.push('⚡ Lightning');
+      if (hours && sameDay >= 0.9) badges.push('⏰ Same-day logger');
+      if (inWeek && streak >= 5) badges.push(`🔥 ${streak}-day streak`);
+      if (timed.some((x) => x.d <= 0.05)) badges.push('⏱️ Live timer');
+      return {person, score, med, sameDay, entries: timed.length, streak: inWeek ? streak : 0, badges};
+    });
+    const todays = DATA.worklogs.filter((r) => inWeek && r.day === today && r.created).sort((a, b) => toMs(a.created) - toMs(b.created));
+    if (todays.length) { const p = players.find((x) => x.person === todays[0].person); if (p) p.badges.push('🐦 Early bird'); }
+    players.sort((a, b) => b.score - a.score || (a.med ?? 1e9) - (b.med ?? 1e9) || DATA.team.indexOf(a.person) - DATA.team.indexOf(b.person));
+    return players;
+  }
+
+  let LEADER = '';
+  function renderBoard() {
+    const players = scoreWeek();
+    const top = players[0];
+    LEADER = top && top.entries > 0 ? top.person : '';
+    $('count-board').textContent = LEADER ? LEADER.split(' ')[0] : '';
+    const mvp = $('mvp');
+    if (LEADER) {
+      const crown = el('div', 'tt-mvp-crown', '⚡'); crown.setAttribute('aria-hidden', 'true');
+      const txt = el('div');
+      const tied = players.filter((p) => p.entries && p.score === top.score).map((p) => p.person.split(' ')[0]);
+      txt.append(el('b', '', tied.length > 1 ? `${tied.join(' & ')} are tied for fastest logger!` : `${top.person.split(' ')[0]} is this week’s fastest logger!`),
+        el('p', '', `Typically logs time ${fmtDelay(top.med)} after finishing the work · speed score ${top.score}${top.streak ? ` · 🔥 ${top.streak}-day streak` : ''}`));
+      mvp.replaceChildren(crown, txt); mvp.hidden = false;
+    } else mvp.hidden = true;
+    const medals = ['🥇', '🥈', '🥉'];
+    let rank = 0, last = null;
+    $('board').replaceChildren(...players.map((p, i) => {
+      const key = p.entries ? p.score : -1;
+      if (key !== last) { rank = i + 1; last = key; }
+      const li = el('li', 'tt-player' + (rank === 1 && p.entries ? ' is-first' : ''));
+      const topRow = el('div', 'tt-player-top');
+      topRow.append(rank <= 3 && p.entries ? el('span', 'tt-medal', medals[rank - 1]) : el('span', 'tt-medal tt-rank', `#${rank}`), el('span', 'tt-player-name', p.person));
+      const pts = el('span', 'tt-points', p.entries ? String(p.score) : '—'); pts.append(el('small', '', ' /100')); topRow.append(pts);
+      const track = el('div', 'tt-bar-track'); const fill = el('div', 'tt-bar-fill'); fill.style.width = `${p.score}%`; track.append(fill);
+      const stats = el('div', 'tt-player-stats', p.entries
+        ? `⏱️ logs ${fmtDelay(p.med)} after the work · ${Math.round(p.sameDay * 100)}% the same day${p.streak ? ` · 🔥 ${p.streak}` : ''}`
+        : 'No time logged this week yet');
+      const badges = el('div', 'tt-badges'); p.badges.forEach((b) => badges.append(el('span', 'tt-badge', b)));
+      li.append(topRow, track, stats, badges);
+      li.setAttribute('aria-label', `${rank}. ${p.person}, speed score ${p.entries ? p.score : 'none'}${p.badges.length ? `, badges: ${p.badges.join(', ')}` : ''}`);
+      return li;
+    }));
+  }
+
   // ---------- controls ----------
   const go = (i) => { S.week = Math.max(0, Math.min(DATA.weeks.length - 1, i)); S.day = ''; renderAll(); };
   $('prev').addEventListener('click', () => go(S.week - 1));
   $('next').addEventListener('click', () => go(S.week + 1));
-  $('this-week').addEventListener('click', () => { const t = DATA.weeks.findIndex((w) => w.week_start <= todayIso() && todayIso() <= w.week_end); go(t >= 0 ? t : DATA.weeks.length - 1); });
+  $('this-week').addEventListener('click', () => go(currentWeekIndex()));
+  $('week-select').addEventListener('change', () => go(Number($('week-select').value)));
+  $('person-select').addEventListener('change', () => { S.person = $('person-select').value; S.day = ''; renderAfterFilter(); });
+  document.addEventListener('keydown', (e) => {
+    if (!DATA || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+    if (e.target.closest && e.target.closest('input, select, textarea, [contenteditable]')) return;
+    if (e.key === 'ArrowLeft' && S.week > 0) { e.preventDefault(); go(S.week - 1); }
+    if (e.key === 'ArrowRight' && S.week < DATA.weeks.length - 1) { e.preventDefault(); go(S.week + 1); }
+  });
+  document.querySelectorAll('.tt-seg-btn').forEach((b) => b.addEventListener('click', () => { LOG_VIEW = b.dataset.view; renderLog(); }));
   $('clear-day').addEventListener('click', () => { S.day = ''; renderAfterFilter(); });
   $('update').addEventListener('click', async () => {
     const b = $('update'); b.disabled = true; b.textContent = '⏳ Loading…';
@@ -362,6 +503,37 @@
   $('t-clear').addEventListener('click', () => { Object.assign(S, {q: '', project: '', status: '', rel: '', assignee: ''}); renderTouchedFilters(); renderTouched(); });
   let rz = null;
   window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => DATA && renderChart(), 150); });
+
+  let navReady = false;
+  function setupNav() {
+    if (navReady) return; navReady = true;
+    const nav = $('nav');
+    const setH = () => document.documentElement.style.setProperty('--nav-h', `${nav.offsetHeight}px`);
+    setH(); new ResizeObserver(setH).observe(nav);
+    const sentinel = el('div'); sentinel.style.cssText = 'height:1px;margin-top:-21px'; sentinel.setAttribute('aria-hidden', 'true'); nav.before(sentinel);
+    const tabs = [...document.querySelectorAll('.tt-tab[data-target]')];
+    const mark = (id) => tabs.forEach((t) => t.setAttribute('aria-current', String(t.dataset.target === id)));
+    const spy = () => {
+      nav.classList.toggle('is-stuck', sentinel.getBoundingClientRect().top < 0);
+      const line = nav.getBoundingClientRect().bottom + 40;
+      let active = tabs[0].dataset.target;
+      for (const t of tabs) { const sec = $(t.dataset.target); if (sec && sec.getBoundingClientRect().top <= line) active = t.dataset.target; }
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) active = tabs[tabs.length - 1].dataset.target;
+      mark(active);
+    };
+    let ticking = null;
+    window.addEventListener('scroll', () => { if (!ticking) ticking = setTimeout(() => { spy(); ticking = null; }, 60); }, {passive: true});
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    tabs.forEach((t) => t.addEventListener('click', (e) => {
+      const sec = $(t.dataset.target);
+      if (!sec) return;
+      e.preventDefault();
+      sec.scrollIntoView({behavior: reduce ? 'auto' : 'smooth', block: 'start'});
+      history.replaceState(null, '', `#${t.dataset.target}`);
+      mark(t.dataset.target);
+    }));
+    spy();
+  }
 
   // Try a remembered password first.
   const saved = store.get();

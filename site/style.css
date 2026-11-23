@@ -151,3 +151,92 @@ th[aria-sort="descending"] .tt-sort::after { content: "↓"; opacity: 1; }
 
 @media (prefers-reduced-motion: reduce) { .tt-btn { transition: none; } .tt-btn:hover { transform: none; } }
 @media (max-width: 560px) { .tt-head, .tt-section, .tt-card { padding: 14px; border-radius: 16px; } }
+
+/* Sticky navigation */
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+.tt-section, .tt-head { scroll-margin-top: calc(var(--nav-h, 110px) + 12px); }
+.tt-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.tt-nav { position: sticky; top: 0; z-index: 5; margin: 0 -16px; padding: 10px 16px 0; display: flex; flex-direction: column; gap: 8px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: saturate(1.4) blur(10px); -webkit-backdrop-filter: saturate(1.4) blur(10px);
+  border-bottom: 1px solid var(--line); }
+.tt-nav.is-stuck { box-shadow: 0 6px 18px color-mix(in srgb, var(--fg) 8%, transparent); }
+.tt-nav-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.tt-week-switch, .tt-person-switch { display: inline-flex; align-items: center; gap: 4px; padding: 3px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); }
+.tt-person-switch { padding-left: 10px; }
+.tt-icon-btn { font: inherit; font-size: 20px; line-height: 1; width: 34px; height: 34px; border-radius: 50%; border: 0; background: transparent; color: var(--fg); cursor: pointer; }
+.tt-icon-btn:hover:not([disabled]) { background: color-mix(in srgb, var(--purple) 14%, transparent); }
+.tt-icon-btn[disabled] { opacity: .3; cursor: default; }
+.tt-week-select { font: inherit; font-weight: 600; font-size: 14px; color: var(--fg); background: transparent; border: 0; padding: 6px 4px; border-radius: 999px; cursor: pointer; max-width: 230px; }
+.tt-week-select:hover { background: color-mix(in srgb, var(--purple) 10%, transparent); }
+.tt-btn-small { padding: 6px 12px; font-size: 13px; }
+.tt-day-chip { font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 999px; border: 0; cursor: pointer; color: #fff; background: linear-gradient(120deg, var(--purple), var(--blue)); }
+.tt-tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; margin: 0 -4px; padding: 0 4px; }
+.tt-tabs::-webkit-scrollbar { display: none; }
+.tt-tab { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px 10px; font-size: 14px; font-weight: 500; color: var(--muted); text-decoration: none; border-bottom: 3px solid transparent; border-radius: 8px 8px 0 0; }
+.tt-tab:hover { color: var(--fg); background: color-mix(in srgb, var(--purple) 8%, transparent); }
+.tt-tab[aria-current="true"] { color: var(--fg); border-bottom-color: var(--pink); }
+.tt-count { font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: color-mix(in srgb, var(--fg) 8%, transparent); color: var(--fg); font-variant-numeric: tabular-nums; }
+.tt-count:empty { display: none; }
+@media (max-width: 560px) {
+  .tt-nav { padding-top: 8px; gap: 4px; }
+  .tt-nav-row { gap: 6px; }
+  .tt-week-switch { flex: 1 1 100%; min-width: 0; }
+  .tt-week-switch .tt-week-select { flex: 1 1 auto; min-width: 0; max-width: none; text-align: center; }
+  .tt-week-switch { flex: 1 1 200px; }
+  .tt-person-switch { flex: 1 1 150px; min-width: 0; }
+  .tt-person-switch .tt-week-select { flex: 1 1 auto; min-width: 0; max-width: none; }
+  .tt-spacer { display: none; }
+  .tt-state { order: 10; width: 100%; font-size: 12px; }
+  .tt-nav.is-stuck .tt-state { display: none; }
+  .tt-tab { padding: 6px 10px 8px; font-size: 13px; }
+}
+
+/* Gamification */
+#leaderboard { --accent: var(--yellow); background: linear-gradient(160deg, color-mix(in srgb, var(--yellow) 10%, var(--panel)), var(--panel) 55%); }
+.tt-mvp { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 18px; color: #2a1a00;
+  background: linear-gradient(120deg, #ffe27a, #ffb84d 55%, #ff8fb8); box-shadow: 0 6px 18px color-mix(in srgb, var(--orange) 30%, transparent); }
+.tt-mvp-crown { font-size: 40px; line-height: 1; animation: tt-bob 2.4s ease-in-out infinite; }
+.tt-mvp b { font-size: 18px; }
+.tt-mvp p { margin: 2px 0 0; font-size: 13px; opacity: .85; }
+@keyframes tt-bob { 0%, 100% { transform: translateY(0) rotate(-6deg); } 50% { transform: translateY(-4px) rotate(6deg); } }
+.tt-board { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.tt-player { position: relative; display: flex; flex-direction: column; gap: 8px; padding: 14px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line); }
+.tt-player.is-first { border: 2px solid var(--yellow); box-shadow: 0 4px 14px color-mix(in srgb, var(--yellow) 30%, transparent); }
+.tt-player-top { display: flex; align-items: center; gap: 10px; }
+.tt-medal { font-size: 26px; line-height: 1; width: 32px; text-align: center; }
+.tt-rank { font-weight: 700; color: var(--muted); }
+.tt-player-name { font-weight: 600; flex: 1; min-width: 0; line-height: 1.25; }
+.tt-points { font-weight: 700; font-size: 20px; font-variant-numeric: tabular-nums; }
+.tt-points small { font-size: 12px; font-weight: 500; color: var(--muted); }
+.tt-bar-track { height: 8px; border-radius: 999px; background: color-mix(in srgb, var(--fg) 8%, transparent); overflow: hidden; }
+.tt-bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--green), var(--blue), var(--purple)); transition: width .4s ease; }
+.tt-player-stats { font-size: 12px; color: var(--muted); }
+.tt-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.tt-badges:empty::before { content: "No badges yet. Log a bit faster to earn one 💪"; font-size: 12px; color: var(--muted); }
+.tt-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 500; padding: 2px 8px; border-radius: 999px;
+  background: color-mix(in srgb, var(--purple) 12%, var(--panel)); border: 1px solid color-mix(in srgb, var(--purple) 25%, var(--line)); white-space: nowrap; }
+.tt-rules, .tt-badge-key { margin: 0; padding: 0 12px 10px 30px; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.tt-badge-key { list-style: none; padding-left: 12px; }
+.tt-badge-key li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#leaderboard .tt-key-box > .tt-note { padding: 0 12px 12px; }
+.tt-crown { margin-left: 4px; }
+@media (prefers-reduced-motion: reduce) { .tt-mvp-crown { animation: none; } .tt-bar-fill { transition: none; } }
+
+/* Team vibe in the header */
+.tt-vibe { margin: 12px 0 0; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 14px; border-radius: 14px; max-width: 100%;
+  background: color-mix(in srgb, var(--panel) 70%, transparent); border: 1px solid color-mix(in srgb, var(--green) 35%, var(--line)); font-size: 15px; }
+.tt-vibe-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; opacity: .7; }
+
+/* Timesheet */
+.tt-meme-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.tt-seg { display: inline-flex; padding: 3px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); }
+.tt-seg-btn { font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 999px; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.tt-seg-btn[aria-pressed="true"] { background: var(--panel); color: var(--fg); font-weight: 600; box-shadow: 0 1px 4px color-mix(in srgb, var(--fg) 12%, transparent); }
+.tt-seg-btn:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+.tt-sheet td.tt-h, .tt-sheet th.tt-h { text-align: center; min-width: 4.2em; }
+.tt-sheet td.tt-h.is-zero { color: color-mix(in srgb, var(--muted) 60%, transparent); }
+.tt-sheet td.tt-h.is-day, .tt-sheet th.tt-h.is-day { background: color-mix(in srgb, var(--blue) 10%, transparent); }
+.tt-sheet .tt-person-cell { font-weight: 600; }
+.tt-sheet tr.tt-group-start > * { border-top: 2px solid var(--line); }
+.tt-sheet tfoot th, .tt-sheet tfoot td { border-top: 2px solid var(--line); border-bottom: 0; font-weight: 600; background: color-mix(in srgb, var(--accent) 10%, var(--panel)); }

@@ -33,7 +33,13 @@ for (const w of weeks) for (let d = 0; d < 5; d++) {
     while (left > 0) {
       const t = tickets[Math.floor(rnd() * tickets.length)];
       const h = Math.min(left, [0.5, 1, 1.5, 2, 3][Math.floor(rnd() * 5)]);
-      worklogs.push({id: String(id++), person: p.name, day: iso(day), started: iso(day) + 'T09:00:00.000+0200', hours: h,
+      const habit = [0.3, 1, 3, 6, 20][TEAM.indexOf(p)];
+      const startH = 17 - left;
+      const delayH = rnd() * habit * 2;
+      const c = new Date(day); c.setHours(9, 0, 0, 0); c.setMinutes(Math.round((startH - 9 + h + delayH) * 60));
+      const stamp = (d) => `${iso(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}:00.000+0200`;
+      const st = new Date(day); st.setHours(9, 0, 0, 0); st.setMinutes(Math.round((startH - 9) * 60));
+      worklogs.push({id: String(id++), person: p.name, day: iso(day), started: stamp(st), created: stamp(c), hours: h,
         key: t[0], summary: t[1], project_key: t[2], project: t[3], issue_type: 'Sub-task', parent_key: '', status: t[4], status_category: t[5]});
       left -= h;
     }

@@ -104,7 +104,7 @@ async function worklogRows() {
         const day = String(w.started || '').slice(0, 10);
         if (day < from || day > to) continue;
         rows.push({
-          id: String(w.id), person, day, started: w.started,
+          id: String(w.id), person, day, started: w.started, created: w.created || '',
           hours: Math.round((Number(w.timeSpentSeconds) || 0) / 36) / 100,
           key: it.key, summary: f.summary || '',
           project_key: f.project?.key || '', project: f.project?.name || '',

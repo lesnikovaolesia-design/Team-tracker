@@ -32,30 +32,36 @@
     <header class="tt-head" id="overview">
       <h1 class="tt-title">⏱️ Team Time Tracker ✨</h1>
       <p class="tt-lede">In the week of <b id="week-text">—</b>, the team logged <b id="team-hours">—</b> hours in Jira against a goal of <b id="team-goal">—</b> hours.</p>
+      <p class="tt-vibe" title="Based on today’s Team row in the hours grid"><span class="tt-vibe-label">🌡️ Team vibe today</span> <span id="vibe-text"></span></p>
     </header>
 
-    <div class="tt-fun">
-      <div class="tt-card tt-joke-card">
-        <p class="tt-kicker">🃏 Joke of the day</p>
-        <div class="tt-joke-emoji" id="joke-emoji">☕</div>
-        <p class="tt-joke" id="joke-text"></p>
+    <nav class="tt-nav" id="nav" aria-label="Tracker navigation">
+      <div class="tt-nav-row">
+        <div class="tt-week-switch" role="group" aria-label="Week">
+          <button type="button" class="tt-icon-btn" id="prev" aria-label="Previous week" title="Previous week (←)">‹</button>
+          <label class="tt-sr" for="week-select">Week</label>
+          <select class="tt-week-select" id="week-select"></select>
+          <button type="button" class="tt-icon-btn" id="next" aria-label="Next week" title="Next week (→)">›</button>
+        </div>
+        <button type="button" class="tt-btn tt-btn-small" id="this-week" hidden>This week</button>
+        <div class="tt-person-switch">
+          <label class="tt-sr" for="person-select">Person</label>
+          <span aria-hidden="true">👤</span>
+          <select class="tt-week-select" id="person-select"></select>
+        </div>
+        <button type="button" class="tt-day-chip" id="clear-day" hidden aria-label="Clear the day filter"></button>
+        <span class="tt-spacer"></span>
+        <span class="tt-state" id="updated-at" aria-live="polite"></span>
+        <button type="button" class="tt-btn tt-btn-primary tt-btn-small" id="update">🔄 Update</button>
       </div>
-      <div class="tt-card tt-vibe-card">
-        <p class="tt-kicker">🌡️ Team vibe today</p>
-        <p class="tt-joke" id="vibe-text"></p>
-        <p class="tt-note">Based on today’s Team row in the hours grid.</p>
+      <div class="tt-tabs" role="list">
+        <a class="tt-tab" role="listitem" href="#daily" data-target="daily">📊 Hours <span class="tt-count" id="count-hours"></span></a>
+        <a class="tt-tab" role="listitem" href="#leaderboard" data-target="leaderboard">⚡ Fastest <span class="tt-count" id="count-board"></span></a>
+        <a class="tt-tab" role="listitem" href="#projects" data-target="projects">🧭 Projects <span class="tt-count" id="count-projects"></span></a>
+        <a class="tt-tab" role="listitem" href="#logged" data-target="logged">🧾 Timesheet <span class="tt-count" id="count-logged"></span></a>
+        <a class="tt-tab" role="listitem" href="#touched" data-target="touched">🗂️ Tickets <span class="tt-count" id="count-touched"></span></a>
       </div>
-    </div>
-
-    <div class="tt-bar" id="controls">
-      <button type="button" class="tt-btn" id="prev">← Previous week</button>
-      <span class="tt-week" id="week-label" aria-live="polite">—</span>
-      <button type="button" class="tt-btn" id="next">Next week →</button>
-      <button type="button" class="tt-btn" id="this-week">This week</button>
-      <span class="tt-spacer"></span>
-      <span class="tt-state" id="updated-at"></span>
-      <button type="button" class="tt-btn tt-btn-primary" id="update">🔄 Update</button>
-    </div>
+    </nav>
 
     <section class="tt-section" id="daily">
       <h2 class="tt-h2">📊 Hours per day</h2>
@@ -84,13 +90,27 @@
       </div>
     </section>
 
-    <section class="tt-section" id="filter">
-      <h2 class="tt-h2">👀 Show tickets for</h2>
-      <div class="tt-chips" id="chips" role="group" aria-label="Filter by person"></div>
-      <div class="tt-bar">
-        <span class="tt-note" id="filter-text"></span>
-        <button type="button" class="tt-btn" id="clear-day" hidden>Clear day</button>
-      </div>
+    <section class="tt-section" id="leaderboard">
+      <h2 class="tt-h2">⚡ Fastest logger</h2>
+      <p class="tt-note">Everyone logs their time in the end, so this rewards logging it <b>fast</b>: the sooner an entry lands in Jira after the work is done, the higher your speed score.</p>
+      <div class="tt-mvp" id="mvp" hidden></div>
+      <ol class="tt-board" id="board"></ol>
+      <details class="tt-key-box">
+        <summary>🎮 How the speed score works</summary>
+        <ul class="tt-rules">
+          <li>For each entry we measure the time from when the work ended (its start time plus its duration) to when it was added to Jira.</li>
+          <li>Within 1 hour: <b>100%</b> · within 4 hours: <b>80%</b> · within 12 hours: <b>55%</b> · next day: <b>25%</b> · later: <b>0%</b></li>
+          <li>Your speed score is the average for the week, weighted by hours, from 0 to 100. Logging more hours doesn’t raise it.</li>
+        </ul>
+        <ul class="tt-badge-key">
+          <li><span class="tt-badge">⚡ Lightning</span> Typically logs within 1 hour of the work</li>
+          <li><span class="tt-badge">⏱️ Live timer</span> Logged an entry right as the work finished</li>
+          <li><span class="tt-badge">⏰ Same-day logger</span> At least 90% of the week’s time logged on the day</li>
+          <li><span class="tt-badge">🔥 Streak</span> 5 or more workdays in a row with everything logged the same day</li>
+          <li><span class="tt-badge">🐦 Early bird</span> First to log time today</li>
+        </ul>
+        <p class="tt-note">The week’s fastest logger gets a ⚡ next to their name in the hours grid. Rewards are up to the team: coffee, first pick of tasks, or bragging rights.</p>
+      </details>
     </section>
 
     <section class="tt-section" id="projects">
@@ -102,9 +122,22 @@
     </section>
 
     <section class="tt-section" id="logged">
-      <h2 class="tt-h2">🧾 Logged tickets</h2>
-      <p class="tt-note">Every time entry in the selected week, across all projects. Select a ticket key to open it in Jira.</p>
-      <div class="tt-scroll">
+      <div class="tt-meme-row">
+        <h2 class="tt-h2">🧾 Timesheet</h2>
+        <div class="tt-seg" role="group" aria-label="Show time as">
+          <button type="button" class="tt-seg-btn" data-view="sheet" aria-pressed="true">By ticket</button>
+          <button type="button" class="tt-seg-btn" data-view="entries" aria-pressed="false">Every entry</button>
+        </div>
+      </div>
+      <p class="tt-note" id="log-note">Hours per ticket and day for the selected week. Long-running tickets show up once, with each day’s hours. Select a ticket key to open it in Jira.</p>
+      <div class="tt-scroll" id="sheet-wrap">
+        <table class="tt-table tt-sheet">
+          <thead id="sheet-head"></thead>
+          <tbody id="sheet-rows"></tbody>
+          <tfoot id="sheet-foot"></tfoot>
+        </table>
+      </div>
+      <div class="tt-scroll" id="entries-wrap" hidden>
         <table class="tt-table">
           <thead><tr><th>Day</th><th>Person</th><th>Ticket</th><th>Summary</th><th>Project</th><th>Status</th><th class="tt-num">Hours</th></tr></thead>
           <tbody id="log-rows"></tbody>
