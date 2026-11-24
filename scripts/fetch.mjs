@@ -58,11 +58,14 @@ async function search(jql, fields, limit = 1000, auth = AUTH) {
 }
 
 // An extra account that fails (expired token, no access) is skipped with a warning; the main one must work.
+const SKIPPED = new Set();
 async function searchAs(auth, jql, fields, limit) {
+  if (SKIPPED.has(auth)) return {issues: [], truncated: false};
   try { return await search(jql, fields, limit, auth); }
   catch (e) {
     if (auth === AUTH) throw e;
-    console.warn(`Skipped an extra Jira account: ${e.message}`);
+    SKIPPED.add(auth);
+    console.warn(`Skipped extra Jira account #${ACCOUNTS.indexOf(auth) + 1}: ${e.message}`);
     return {issues: [], truncated: false};
   }
 }
@@ -184,8 +187,14 @@ const payload = {
   worklogs: wl.rows,
   touched: tc.byWeek,
   truncated: {worklogs: wl.truncated, touched: tc.truncated},
+  accounts: {configured: ACCOUNTS.length, working: ACCOUNTS.length - SKIPPED.size},
 };
 await mkdir(new URL('../site/', import.meta.url), {recursive: true});
 await writeFile(new URL('../site/data.enc.json', import.meta.url), JSON.stringify(await encryptJson(payload, TRACKER_PASSWORD)));
-console.log(`Read Jira with ${ACCOUNTS.length} account${ACCOUNTS.length > 1 ? 's' : ''}.`);
+// A small public status file: when the data was made and how many Jira accounts worked. No hours or names.
+const failed = [...SKIPPED].map((a) => ACCOUNTS.indexOf(a) + 1);
+await writeFile(new URL('../site/status.json', import.meta.url), JSON.stringify({
+  generated_at: payload.generated_at, accounts_configured: ACCOUNTS.length, accounts_working: ACCOUNTS.length - SKIPPED.size, failed_accounts: failed,
+}));
+console.log(`Read Jira with ${ACCOUNTS.length - SKIPPED.size} of ${ACCOUNTS.length} account${ACCOUNTS.length > 1 ? 's' : ''}${failed.length ? ` (not working: #${failed.join(', #')})` : ''}.`);
 console.log(`Wrote ${wl.rows.length} time entries and ${Object.values(tc.byWeek).flat().length} ticket rows for ${weeks.length} weeks in ${((Date.now() - started) / 1000).toFixed(1)} s.`);

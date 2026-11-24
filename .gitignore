@@ -3,3 +3,4 @@ site/data.enc.json
 .env
 .DS_Store
 node_modules/
+site/status.json

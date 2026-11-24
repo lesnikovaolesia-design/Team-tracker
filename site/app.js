@@ -106,6 +106,8 @@
     $('next').disabled = S.week >= DATA.weeks.length - 1;
     const at = new Date(DATA.generated_at);
     const mins = Math.round((Date.now() - at.getTime()) / 60000);
+    const acc = DATA.accounts;
+    $('updated-at').title = acc ? `Read from Jira with ${acc.working} of ${acc.configured} account${acc.configured > 1 ? 's' : ''}` : '';
     $('updated-at').textContent = `Updated ${at.toLocaleString(undefined, {weekday: 'short', hour: '2-digit', minute: '2-digit'})}${mins >= 0 && mins < 600 ? ` (${mins} min ago)` : ''}`;
   }
 
