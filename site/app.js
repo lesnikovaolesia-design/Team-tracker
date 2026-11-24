@@ -407,11 +407,71 @@
   });
   document.querySelectorAll('.tt-seg-btn').forEach((b) => b.addEventListener('click', () => { LOG_VIEW = b.dataset.view; renderLog(); }));
   $('clear-day').addEventListener('click', () => { S.day = ''; renderAfterFilter(); });
+  // ---------- 🔄 Update: ask the helper to read Jira now, wait for the job, then load the new copy ----------
+  const TRIGGER_URL = (window.TT_CONFIG && window.TT_CONFIG.triggerUrl) || '';
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  async function teamKey(password) {
+    const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`team-tracker:${password}`));
+    return [...new Uint8Array(hash)].map((x) => x.toString(16).padStart(2, '0')).join('');
+  }
+  async function readJiraNow(onStep) {
+    const key = await teamKey(PASS);
+    const call = async (method) => {
+      const r = await fetch(TRIGGER_URL, {method, headers: {'X-Team-Key': key}, cache: 'no-store'});
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || `helper ${r.status}`);
+      return j;
+    };
+    onStep('⏳ Asking Jira…');
+    const first = await call('POST');
+    // The run to wait for: the one just started, or the one that was already running.
+    const since = first.started ? Date.parse(first.since) - 10000 : Date.parse(first.run.created_at) - 1000;
+    let run = first.started ? null : first.run;
+    const t0 = Date.now();
+    for (;;) {
+      if (run && Date.parse(run.created_at) >= since && run.status === 'completed') {
+        if (run.conclusion !== 'success') throw new Error('job-failed');
+        break;
+      }
+      if (Date.now() - t0 > 6 * 60000) throw new Error('job-slow');
+      await sleep(6000);
+      const s = Math.round((Date.now() - t0) / 1000);
+      onStep(`⏳ Reading Jira… ${Math.floor(s / 60)}:${pad(s % 60)}`);
+      run = (await call('GET')).run;
+    }
+    // The job is done; its copy can take a few seconds to show up on the site.
+    onStep('⏳ Loading…');
+    const madeAfter = Date.parse(run.created_at);
+    for (let i = 0; i < 12; i++) {
+      const d = await load(PASS);
+      if (Date.parse(d.generated_at) >= madeAfter) return d;
+      await sleep(5000);
+    }
+    throw new Error('copy-late');
+  }
+  const showData = (d) => { const ws = week().week_start; DATA = d; const i = DATA.weeks.findIndex((w) => w.week_start === ws); if (i >= 0) S.week = i; renderAll(); };
+  const UPDATE_MSG = {
+    'job-failed': 'The Jira update didn’t finish. Showing the newest saved copy.',
+    'job-slow': 'The Jira update is taking long. Try 🔄 Update again in a few minutes.',
+    'copy-late': 'Jira was read. The new copy shows up in a few minutes; press 🔄 Update again then.',
+  };
+  if (TRIGGER_URL) $('update').title = 'Reads Jira now. Takes about a minute.';
   $('update').addEventListener('click', async () => {
-    const b = $('update'); b.disabled = true; b.textContent = '⏳ Loading…';
-    try { const ws = week().week_start; DATA = await load(PASS); const i = DATA.weeks.findIndex((w) => w.week_start === ws); if (i >= 0) S.week = i; renderAll(); }
-    catch { $('updated-at').textContent = 'Couldn’t load the newest copy. Try again.'; }
-    finally { b.disabled = false; b.textContent = '🔄 Update'; }
+    const b = $('update'); b.disabled = true;
+    const step = (t) => { b.textContent = t; };
+    let note = '';
+    try {
+      if (TRIGGER_URL) {
+        try { showData(await readJiraNow(step)); note = '✅ Fresh from Jira'; }
+        catch (e) { note = UPDATE_MSG[e.message] || 'Couldn’t start a Jira update. Showing the newest saved copy.'; if (!UPDATE_MSG[e.message] || e.message === 'job-failed') showData(await load(PASS)); }
+      } else {
+        step('⏳ Loading…'); showData(await load(PASS));
+      }
+    } catch { note = 'Couldn’t load the newest copy. Try again.'; }
+    finally {
+      b.disabled = false; b.textContent = '🔄 Update';
+      if (note) { $('updated-at').textContent = note; setTimeout(() => DATA && renderHeader(), 8000); }
+    }
   });
   document.querySelectorAll('#touched-table .tt-sort').forEach((b) => b.addEventListener('click', () => {
     const col = b.dataset.sort;

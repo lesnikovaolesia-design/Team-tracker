@@ -68,6 +68,44 @@ time in a project that account has no access to, either:
   The job reads Jira with every account and counts each time entry once.
   An extra account that stops working is skipped, and the job notes it in its log.
 
+### 6. Optional: make 🔄 Update read Jira right away
+
+Without this, 🔄 Update only loads the newest saved copy, and GitHub saves one
+about every hour. With it, anyone with the team password can press 🔄 Update to
+start the job and see fresh data about a minute later. A small free Cloudflare
+helper (`worker/trigger.js`) holds a GitHub key that can only start this one job.
+
+**A. Make the GitHub key**
+
+1. Open <https://github.com/settings/personal-access-tokens/new>.
+2. **Token name:** `team-tracker-update`. **Expiration:** 1 year.
+3. **Repository access:** Only select repositories → `Team-tracker`.
+4. **Permissions → Repository permissions → Actions:** Read and write.
+5. **Generate token** and copy it. It starts with `github_pat_`.
+
+**B. Make the Cloudflare helper**
+
+1. Sign up or sign in at <https://dash.cloudflare.com/>. The free plan is enough.
+2. Go to **Workers & Pages → Create → Start with Hello World**, name it
+   `team-tracker-update`, and press **Deploy**.
+3. Press **Edit code**, delete everything there, paste the whole of
+   `worker/trigger.js`, and press **Deploy**.
+4. Go back to the worker, then **Settings → Variables and Secrets → Add**. Add two,
+   each with type **Secret**:
+   - `GITHUB_TOKEN`: the key from part A
+   - `TRACKER_PASSWORD`: the team password
+5. Copy the worker's address, like `https://team-tracker-update.<your-name>.workers.dev`.
+
+**C. Connect the page**
+
+Put that address in `site/config.js` as `triggerUrl` and push. The button then
+says "Asking Jira…", "Reading Jira… 0:30" and "✅ Fresh from Jira". If the
+helper can't be reached, the button loads the newest saved copy, as before.
+
+The helper starts the job at most once every 2 minutes, and only for people who
+know the team password. When the GitHub key expires, make a new one and replace
+`GITHUB_TOKEN`.
+
 ## Trying the page locally
 
 ```bash
@@ -83,6 +121,6 @@ Then open <http://localhost:8765> and enter `sample-password`. The sample data i
 ## Notes
 
 - Hours count on the day each entry was logged for, in that person's time zone.
-- The page shows when the data was last updated. 🔄 Update loads the newest saved copy.
+- The page shows when the data was last updated. 🔄 Update reads Jira right away once step 6 is set up, and otherwise loads the newest saved copy.
 - Changing `TRACKER_PASSWORD` takes effect on the next run. Everyone then needs the new one.
 - To stop the updates, disable the workflow under **Actions → Update tracker → ⋯ → Disable workflow**.
