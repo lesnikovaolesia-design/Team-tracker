@@ -275,6 +275,15 @@
     const url = safeUrl(`https://${site}/browse/${encodeURIComponent(key)}`);
     const a = el('a', '', key); if (url) { a.href = url; a.target = '_blank'; a.rel = 'noopener'; } return a;
   };
+  // The summary, plus the ticket a sub-task was created from.
+  const parentLine = (r) => {
+    if (!r.parent_key) return null;
+    const from = el('div', 'tt-parent');
+    from.append(el('span', '', '↳ Sub-task of '), link(r.parent_key, DATA.site));
+    if (r.parent_summary) from.append(el('span', '', ` · ${r.parent_summary}`));
+    return from;
+  };
+  const summaryCell = (r) => { const td = el('td', 'tt-wrap', r.summary); const p = parentLine(r); if (p) td.append(p); return td; };
   const statusCell = (name, cat) => { const s = el('span', 'tt-status'); const d = el('span', 'tt-dot'); d.dataset.cat = cat || ''; s.append(d, el('span', '', name)); return s; };
 
   let LOG_VIEW = 'sheet';
@@ -294,7 +303,7 @@
       const k = el('td'); k.append(link(r.key, DATA.site));
       const p = el('td'); p.append(el('span', '', r.project_key), el('span', 'tt-muted', ` ${r.project}`));
       const st = el('td'); st.append(statusCell(r.status, r.status_category));
-      tr.append(el('td', '', dayLabel(r.day)), el('td', '', r.person), k, el('td', 'tt-wrap', r.summary), p, st, el('td', 'tt-num', fmtH(r.hours)));
+      tr.append(el('td', '', dayLabel(r.day)), el('td', '', r.person), k, summaryCell(r), p, st, el('td', 'tt-num', fmtH(r.hours)));
       return tr;
     }));
   }
@@ -305,7 +314,7 @@
     const groups = new Map();
     for (const r of logs) {
       const k = `${r.person}|${r.key}`;
-      const g = groups.get(k) || {person: r.person, key: r.key, summary: r.summary, project_key: r.project_key, project: r.project, status: r.status, status_category: r.status_category, byDay: new Map(), total: 0};
+      const g = groups.get(k) || {person: r.person, key: r.key, summary: r.summary, parent_key: r.parent_key, parent_summary: r.parent_summary, project_key: r.project_key, project: r.project, status: r.status, status_category: r.status_category, byDay: new Map(), total: 0};
       g.byDay.set(r.day, (g.byDay.get(r.day) || 0) + r.hours); g.total += r.hours;
       groups.set(k, g);
     }
@@ -325,7 +334,7 @@
       tr.append(el('td', 'tt-person-cell', g.person !== prev ? g.person : ''));
       prev = g.person;
       const k = el('td'); k.append(link(g.key, DATA.site));
-      const sum = el('td', 'tt-wrap'); sum.append(el('span', '', g.summary), el('br'), el('span', 'tt-muted', `${g.project_key} · ${g.status}`));
+      const sum = el('td', 'tt-wrap'); sum.append(el('div', '', g.summary)); const pl = parentLine(g); if (pl) sum.append(pl); sum.append(el('div', 'tt-muted', `${g.project_key} · ${g.status}`));
       tr.append(k, sum);
       for (const d of days) { const h = g.byDay.get(d) || 0; tr.append(el('td', 'tt-h' + (h ? '' : ' is-zero') + (d === S.day ? ' is-day' : ''), h ? fmtH(h) : '·')); }
       tr.append(el('td', 'tt-num tt-total', fmtH(g.total)));
@@ -372,7 +381,7 @@
     const all = touchedForPerson();
     const q = S.q.trim().toLowerCase();
     let rows = all.filter((r) => (!S.project || r.project_key === S.project) && (!S.status || r.status === S.status) && (!S.rel || r.relation === S.rel)
-      && (!S.assignee || r.assignee === S.assignee) && (!q || r.key.toLowerCase().includes(q) || r.summary.toLowerCase().includes(q)));
+      && (!S.assignee || r.assignee === S.assignee) && (!q || [r.key, r.summary, r.parent_key, r.parent_summary].some((v) => (v || '').toLowerCase().includes(q))));
     if (S.sort) { const c = compare(S.sort); const sign = S.dir === 'desc' ? -1 : 1; rows = rows.map((r, i) => [r, i]).sort((a, b) => sign * c(a[0], b[0]) || a[1] - b[1]).map((x) => x[0]); }
     else {
       const rank = {'Assigned, open': 1, 'Created this week': 0, 'Updated this week': 0};
@@ -386,7 +395,7 @@
       const p = el('td'); p.append(el('span', '', r.project_key), el('span', 'tt-muted', ` ${r.project}`));
       const st = el('td'); st.append(statusCell(r.status, r.status_category));
       const rel = el('td'); rel.append(el('span', 'tt-tag', r.relation));
-      tr.append(el('td', '', r.person), k, el('td', 'tt-wrap', r.summary), p, st, rel, el('td', '', r.assignee), el('td', 'tt-muted', r.updated ? dayLabel(r.updated.slice(0, 10)) : ''));
+      tr.append(el('td', '', r.person), k, summaryCell(r), p, st, rel, el('td', '', r.assignee), el('td', 'tt-muted', r.updated ? dayLabel(r.updated.slice(0, 10)) : ''));
       return tr;
     }));
   }

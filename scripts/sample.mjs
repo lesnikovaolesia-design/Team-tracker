@@ -40,14 +40,15 @@ for (const w of weeks) for (let d = 0; d < 5; d++) {
       const stamp = (d) => `${iso(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}:00.000+0200`;
       const st = new Date(day); st.setHours(9, 0, 0, 0); st.setMinutes(Math.round((startH - 9) * 60));
       worklogs.push({id: String(id++), person: p.name, day: iso(day), started: stamp(st), created: stamp(c), hours: h,
-        key: t[0], summary: t[1], project_key: t[2], project: t[3], issue_type: 'Sub-task', parent_key: '', status: t[4], status_category: t[5]});
+        key: t[0], summary: t[1], project_key: t[2], project: t[3], issue_type: 'Sub-task', parent_key: t[0] === 'TRL-24321' ? 'TRL-24000' : '', parent_summary: t[0] === 'TRL-24321' ? 'Q4 Study Startup redesign' : '', status: t[4], status_category: t[5]});
       left -= h;
     }
   }
 }
 const touched = {};
 for (const w of weeks) touched[w.week_start] = TEAM.flatMap((p, i) => tickets.slice(0, 3 + (i % 3)).map((t, j) => ({
-  person: p.name, key: t[0], summary: t[1], project_key: t[2], project: t[3], issue_type: 'Task', status: t[4], status_category: t[5],
+  person: p.name, key: t[0], summary: t[1], project_key: t[2], project: t[3], issue_type: t[0] === 'TRL-24321' ? 'Sub-task' : 'Task',
+  parent_key: t[0] === 'TRL-24321' ? 'TRL-24000' : '', parent_summary: t[0] === 'TRL-24321' ? 'Q4 Study Startup redesign' : '', status: t[4], status_category: t[5],
   relation: ['Assigned, open', 'Updated this week', 'Created this week'][j % 3], assignee: p.name, updated: w.week_start + 'T10:00:00.000+0200',
 })));
 const payload = {generated_at: new Date().toISOString(), site: SITE, tz: 'Europe/Kyiv', goal_per_day: GOAL_PER_DAY, team: TEAM.map((p) => p.name), weeks, worklogs, touched, truncated: {worklogs: false, touched: false}};

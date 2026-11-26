@@ -62,6 +62,8 @@ table.tt-table { border-collapse: collapse; width: 100%; font-variant-numeric: t
 .tt-table thead th { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; background: color-mix(in srgb, var(--accent, var(--purple)) 12%, var(--panel)); }
 .tt-table tbody tr:last-child > * { border-bottom: 0; }
 .tt-table .tt-wrap { white-space: normal; min-width: 22ch; max-width: 46ch; }
+.tt-parent { margin-top: 3px; font-size: 12px; color: var(--muted); }
+.tt-parent a { color: inherit; font-weight: 600; }
 .tt-table .tt-num { text-align: right; }
 .tt-table .tt-msg { color: var(--muted); white-space: normal; padding: 18px 12px; }
 .tt-table a { color: inherit; font-weight: 600; text-decoration-color: color-mix(in srgb, var(--fg) 35%, transparent); text-underline-offset: 3px; }

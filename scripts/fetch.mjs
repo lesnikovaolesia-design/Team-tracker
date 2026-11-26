@@ -96,6 +96,11 @@ const status = (f) => ({
   status_category: f.status?.statusCategory?.key || '',
 });
 
+// For a sub-task: the ticket it was created from. (Stories under an epic also have a parent; those are left out.)
+const parentOf = (f) => (f.issuetype?.subtask && f.parent?.key
+  ? {parent_key: f.parent.key, parent_summary: f.parent.fields?.summary || ''}
+  : {parent_key: '', parent_summary: ''});
+
 async function worklogRows() {
   // Search a day wider on each side; Jira compares worklog dates in the token owner's time zone.
   const jql = `worklogAuthor in (${ids}) AND worklogDate >= "${iso(addDays(new Date(from + 'T00:00:00Z'), -1))}" AND worklogDate <= "${iso(addDays(new Date(to + 'T00:00:00Z'), 1))}" ORDER BY updated DESC`;
@@ -136,7 +141,7 @@ async function worklogRows() {
           hours: Math.round((Number(w.timeSpentSeconds) || 0) / 36) / 100,
           key: it.key, summary: f.summary || '',
           project_key: f.project?.key || '', project: f.project?.name || '',
-          issue_type: f.issuetype?.name || '', parent_key: f.parent?.key || '',
+          issue_type: f.issuetype?.name || '', ...parentOf(f),
           ...status(f),
         });
       }
@@ -148,7 +153,7 @@ async function worklogRows() {
 async function touchedRows() {
   const byWeek = {};
   let truncated = false;
-  const fields = ['summary', 'status', 'assignee', 'reporter', 'updated', 'created', 'project', 'issuetype'];
+  const fields = ['summary', 'status', 'assignee', 'reporter', 'updated', 'created', 'project', 'issuetype', 'parent'];
   for (const w of weeks) {
     const lists = await Promise.all(TEAM.map(async (p) => {
       const jql = `(assignee = "${p.id}" AND statusCategory != Done) OR issuekey in updatedBy("${p.id}", "${w.week_start}", "${w.week_end}") OR (reporter = "${p.id}" AND created >= "${w.week_start}" AND created <= "${w.week_end} 23:59") ORDER BY updated DESC`;
@@ -166,7 +171,7 @@ async function touchedRows() {
         return {
           person: p.name, key: it.key, summary: f.summary || '',
           project_key: f.project?.key || '', project: f.project?.name || '',
-          issue_type: f.issuetype?.name || '', ...status(f),
+          issue_type: f.issuetype?.name || '', ...status(f), ...parentOf(f),
           relation: assigned && cat !== 'done' ? 'Assigned, open' : created ? 'Created this week' : 'Updated this week',
           assignee: f.assignee?.displayName || 'Unassigned', updated: f.updated || '',
         };
